@@ -23,9 +23,7 @@ Un tableau `plugins`, chaque entrée :
 ## Ajouter une entrée
 
 PR sur `plugins/catalog.json` avec les champs remplis. Revue avant merge comme le reste de ce
-repo — pas de fast-track pour un nouveau contributeur (voir la compétence
-[`curer-compagnon-starter-shop.md`](https://github.com/Iskandeur/lupi/blob/main/competences/curer-compagnon-starter-shop.md)
-côté Lupi pour le détail du gate).
+repo — pas de fast-track pour un nouveau contributeur.
 
 ## Entrées actuelles
 

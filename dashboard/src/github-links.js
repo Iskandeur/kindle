@@ -20,7 +20,7 @@ export const GITHUB_LINKS = {
   },
   public: {
     label: "Repo public / portfolio",
-    url: "https://github.com/Iskandeur/compagnon-starter",
+    url: "https://github.com/Iskandeur/Kindle",
     visibility: "public",
     description: "Le starter dont ce dashboard est issu.",
   },
