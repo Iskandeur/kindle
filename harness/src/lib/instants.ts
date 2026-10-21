@@ -19,6 +19,9 @@
 /** Un epoch en millisecondes plausible s'écrit sur 13 chiffres (≈ 2001 → 2286). */
 const EPOCH_MS_RE = /^\d{13}$/;
 
+/** ISO 8601 : `2026-09-11`, ou date-heure suivie de `Z` ou d'un décalage. */
+const ISO_RE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2}))?$/;
+
 /**
  * Rend l'instant en millisecondes, que `v` soit un epoch-ms (nombre ou chaîne de 13 chiffres) ou
  * une chaîne ISO. **LÈVE** si aucune lecture ne donne un nombre fini.
@@ -27,12 +30,16 @@ const EPOCH_MS_RE = /^\d{13}$/;
  * « tout va bien ».
  */
 export function instantMs(v: unknown): number {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  const s = String(v ?? "").trim();
+  // Un nombre hors des 13 chiffres (epoch en SECONDES, 0, négatif) n'est pas des ms : on lève.
+  if (typeof v === "number" && Number.isInteger(v) && EPOCH_MS_RE.test(String(v))) return v;
+  const s = typeof v === "number" ? "" : String(v ?? "").trim();
   if (EPOCH_MS_RE.test(s)) return Number(s);
-  const iso = Date.parse(s);
-  if (Number.isFinite(iso)) return iso;
-  throw new Error(`horodatage illisible : ${JSON.stringify(v)} (ni epoch-ms 13 chiffres, ni ISO)`);
+  // ISO strict : date seule (UTC) ou date-heure AVEC fuseau. Sans fuseau, Date.parse lirait l'heure locale.
+  if (ISO_RE.test(s)) {
+    const iso = Date.parse(s);
+    if (Number.isFinite(iso)) return iso;
+  }
+  throw new Error(`horodatage illisible : ${JSON.stringify(v)} (ni epoch-ms 13 chiffres, ni ISO avec fuseau)`);
 }
 
 /** Âge en jours, positif dans le passé. Lève avec `instantMs` plutôt que de rendre un `NaN`. */
