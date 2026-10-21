@@ -26,6 +26,14 @@ test("illisible : ça LÈVE, ça ne rend pas un NaN qui se ferait passer pour un
   }
 });
 
+test("hors plage : secondes, 0, négatif et chaînes courtes lèvent au lieu de passer pour des ms", () => {
+  for (const mauvais of [1789089511, 0, -5, 1.5, "1", "12", "2026", "2026-09-11 01:18", "2026-09-11T01:18:31"]) {
+    assert.throws(() => instantMs(mauvais), /illisible/, `aurait dû lever sur ${JSON.stringify(mauvais)}`);
+  }
+  assert.equal(instantMs("2026-09-11T03:18:31.574+02:00"), UN_INSTANT);
+  assert.equal(instantMs("2026-09-11"), Date.UTC(2026, 8, 11));
+});
+
 test("ageJours : le verdict est juste, et une valeur illisible refuse d'en rendre un", () => {
   const j = ageJours(String(UN_INSTANT), MAINTENANT);
   assert.ok(Math.abs(j - 3.28) < 0.02, `attendu ~3,28 j, obtenu ${j}`);
