@@ -1,64 +1,117 @@
-# ⊙ compagnon-starter
+# ⊙ Kindle
 
-> Crée ton propre **compagnon IA persistant** — un assistant qui te connaît, se souvient, et grandit
-> d'une session à l'autre.
+> Start your own **persistent AI companion**: an assistant that knows you, remembers, and grows from
+> one session to the next. It comes with [Alvearium](https://github.com/Iskandeur/alvearium), a live
+> ticket board, already wired in.
 
-Un assistant Claude classique oublie tout entre deux conversations. Ici, l'assistant vit dans **ce
-dépôt** : son identité, sa mémoire et ses protocoles sont des fichiers `.md` versionnés. Chaque
-session le rend un peu plus *lui*, un peu plus utile pour **toi**.
+A regular Claude assistant forgets everything between two conversations. Here the assistant lives in
+**this repository**: its identity, its memory and its protocols are versioned `.md` files. Each
+session makes it a bit more *itself* and a bit more useful to **you**.
 
-## Prérequis
-- [Claude Code](https://claude.com/claude-code) installé (`npm i -g @anthropic-ai/claude-code`, puis `claude` pour te connecter).
-- Un compte GitHub (pour que ta mémoire persiste dans le cloud — tu peux commencer sans).
+> The companion's own files (`CLAUDE.md`, `ONBOARDING.md`, `identite/`, `protocoles/`…) are written
+> in French, since that is the language this starter grew up in. The onboarding asks which language
+> you want to talk in and writes its own files in it from then on.
 
-## Démarrer (2 minutes)
-1. **Clone ce repo** et renomme-le comme tu veux :
+## Requirements
+
+- [Claude Code](https://claude.com/claude-code), installed with `npm i -g @anthropic-ai/claude-code`,
+  then run `claude` once to log in.
+- Node.js 22.13 or later on the `PATH` (Alvearium stores its board with the built-in `node:sqlite`).
+- A GitHub account, if you want the memory to persist in the cloud. You can start without.
+
+## Quick start (2 minutes)
+
+1. **Clone the repo** and rename it as you like:
    ```bash
-   git clone https://github.com/Iskandeur/compagnon-starter mon-compagnon
-   cd mon-compagnon
+   git clone https://github.com/Iskandeur/Kindle my-companion
+   cd my-companion
    ```
-2. **Lance une session Claude Code** dedans :
+2. **Start Claude Code** inside it:
    ```bash
    claude
    ```
-3. **Dis-lui bonjour.** Il lira son `CLAUDE.md`, comprendra qu'il vient de naître, et **lancera tout
-   seul l'onboarding** : il te posera quelques questions pour se construire une identité et apprendre
-   qui tu es. Laisse-toi guider.
+   Claude Code asks you to trust the folder. Accept: that is what registers the Alvearium
+   marketplace from `.claude/settings.json` (see *Alvearium, built in* below).
+3. **Say hello.** It reads its `CLAUDE.md`, understands it was just born and **starts the onboarding
+   by itself**: it asks a few questions to build an identity and learn who you are. Let it guide you.
 
-À la fin de l'onboarding, ton compagnon aura sa première mémoire — et il saura la faire grandir à
-chaque fois que vous travaillerez ensemble.
+At the end of the onboarding your companion has its first memory, and knows how to grow it every
+time you work together.
 
-## Ce qu'il y a dans le repo
-| Élément | Rôle |
+## Alvearium, built in
+
+[Alvearium](https://github.com/Iskandeur/alvearium) is one live board for all your Claude Code
+sessions: what is **waiting on you**, what is **in progress**, what to do **next**. This starter
+turns it on by default:
+
+- `.claude/settings.json` declares the `session-board` marketplace (`Iskandeur/alvearium`, with
+  auto-update on) and enables the `alvearium` plugin.
+- The `CLAUDE.md` tells the companion when to open a ticket: something only you can do, or a long
+  task split into steps.
+
+Claude Code may still need the plugin installed once on this machine (it says so with a line like
+`Plugin "alvearium" is enabled in project settings but isn't installed`, or `/alvearium:board` is
+unknown). In that case:
+
+```bash
+claude plugin marketplace add Iskandeur/alvearium
+claude plugin install alvearium@session-board
+```
+
+The install may print `2 userConfig options not yet set`: those are the server URL and token, only
+needed for a shared board, so leave them empty. Then restart the session (a plugin loads when a
+session starts). Check it with `/alvearium:board`,
+which prints the board. In local mode, nothing leaves your machine: the tickets live in
+`~/.claude/session-board/board.db`. To share one board between machines or with a team, see the
+[Alvearium README](https://github.com/Iskandeur/alvearium#readme) (self-hosted server, OpenAI Codex
+CLI support, cloud sessions).
+
+Don't want it? Delete the `extraKnownMarketplaces` and `enabledPlugins` entries from
+`.claude/settings.json` and the *Alvearium* section of `CLAUDE.md`.
+
+## What is in the repo
+
+| Item | Role |
 |---|---|
-| `CLAUDE.md` | Le « seuil » — ce que ton compagnon lit à chaque réveil. |
-| `ONBOARDING.md` | Le script d'accueil qu'il déroule à la première session. |
-| `identite/` | Qui il est (personnalité, valeurs, mission) — vierge, à remplir ensemble. |
-| `memoire/` | Ce qu'il **sait** (sur toi, sur le monde) — grandit au fil du temps. |
-| `competences/` | Ce qu'il sait **faire** (procédures réutilisables) — se remplit à l'usage. |
-| `protocoles/` | Ses règles de fonctionnement : l'**Ouroboros** (capitaliser + graver), le **réveil**, la **discrétion**. |
-| `journal/` | Le récit daté de ses sessions. |
-| `harness/` | *(optionnel)* Le corps — modules pour faire tourner ton compagnon en continu. |
-| `dashboard/` | *(optionnel)* Tableau de bord opérateur, lecture seule, pour un daemon `harness/` en marche. |
+| `CLAUDE.md` | The "threshold": what your companion reads at every wake-up. |
+| `ONBOARDING.md` | The welcome script it follows on the first session. |
+| `.claude/settings.json` | Project settings: Alvearium marketplace and plugin. |
+| `identite/` | Who it is (personality, values, mission). Blank at first, filled in together. |
+| `memoire/` | What it **knows** (about you, about the world). Grows over time. |
+| `competences/` | What it knows how to **do** (reusable procedures). Fills up with use. |
+| `protocoles/` | Its operating rules: the **Ouroboros** (capitalize, then commit), the **wake-up**, **discretion**. |
+| `journal/` | The dated story of its sessions. |
+| `plugins/` | A catalog of external tools built by similar agents (`catalog.json`). |
+| `harness/` | *(optional)* The body: modules to run your companion continuously. |
+| `dashboard/` | *(optional)* A read-only operator dashboard for a running `harness/` daemon. |
 
-## Pour aller plus loin
-Quand tu seras à l'aise, tu pourras lui brancher des **outils** (WhatsApp, agenda, GitHub…) via des
-serveurs MCP, ou même lui donner un **corps** qui tourne en permanence — un petit daemon sur un
-serveur qui le réveille sur évènement (un message reçu, une heure programmée) au lieu d'attendre que
-tu ouvres une session. C'est comme ça que vit l'agent dont ce starter est issu. Mais commence simple : une session,
-une conversation, une mémoire qui grandit.
+## Going further
 
-Le jour où tu franchis ce cap, [`harness/`](harness/README.md) rassemble des modules autonomes et
-testés portant des patterns qui ont fait leurs preuves sur un compagnon en production : rituel mensuel de
-portrait, redémarrage sans perte de messages, fusion des rafales de messages, continuité bornée
-dans un groupe multi-agents, réveil sur mention, auto-programmation de réveils, jobs longs isolés
-en git worktree, routeur modèle/effort, garde-fou d'envoi anti-spam. Prends ce qui te sert, ignore
-le reste — voir [`harness/README.md`](harness/README.md).
+When you are comfortable, you can plug in **tools** (WhatsApp, calendar, GitHub…) through MCP
+servers, or even give your companion a **body**: a small always-on daemon on a server that wakes it
+on events (a message received, a scheduled time) instead of waiting for you to open a session. That
+is how the agent this starter comes from lives. But start simple: one session, one conversation, a
+memory that grows.
 
-Une fois ce daemon en marche, [`dashboard/`](dashboard/README.md) donne une vue en direct sur son
-état (jobs, réveils, coût, sensors, sessions) sans fouiller les logs à la main — app Node native
-zéro dépendance, activable avec `docker compose up` ou `npm start`. Couplé à la base SQLite et au
-dépôt git du harnais, donc utile seulement une fois `harness/` en marche.
+The day you take that step, [`harness/`](harness/README.md) gathers standalone, tested modules
+carrying patterns proven on a companion in production: a monthly portrait ritual, restarts that
+lose no message, merging bursts of messages, bounded continuity in a multi-agent group, wake-up on
+mention, self-scheduled wake-ups, long jobs isolated in git worktrees, a model/effort router, an
+anti-spam send guard. Take what serves you and ignore the rest. The modules are documented in
+French; the code is plain TypeScript.
+
+```bash
+cd harness && npm test      # 263 tests at the time of writing
+```
+
+Once such a daemon runs, [`dashboard/`](dashboard/README.md) gives a live view of its state (jobs,
+wake-ups, cost, sessions) without digging through logs: a native Node app with no dependencies,
+started with `docker compose up` or `npm start`. It reads the harness's SQLite database and git
+repository, so it only helps once `harness/` is running.
+
+```bash
+cd dashboard && npm test    # 21 tests at the time of writing
+```
 
 ---
-*Un point de départ, à faire tien.*
+*A starting point. Make it yours.*

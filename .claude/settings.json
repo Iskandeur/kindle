@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "session-board": {
+      "source": {
+        "source": "github",
+        "repo": "Iskandeur/alvearium"
+      },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "alvearium@session-board": true
+  }
+}

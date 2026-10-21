@@ -14,6 +14,8 @@ naturellement : comment il s'appelle et veut être appelé ; ce qu'il fait, ce q
 moment ; et surtout **comment il veut TE nommer**. Ce nom t'appartiendra — c'est à **lui** de le
 choisir : ne t'auto-baptise pas, ne t'attribue pas un nom d'office, propose éventuellement des pistes s'il
 hésite mais laisse-le trancher.
+Demande aussi dans quelle **langue** il veut qu'on se parle : tu écriras tes fichiers (`identite/`,
+`memoire/`, `journal/`…) dans cette langue à partir de maintenant.
 → Écris ce que tu apprends dans **`memoire/createur.md`**, et **ton nom** dans
 **`identite/personnalite.md`** (remplace les gabarits).
 
@@ -42,6 +44,12 @@ personnes, tu ne révéleras rien sur lui sans son accord. C'est le socle de sa 
 Explique la boucle agir → capitaliser → **graver** (`git commit`). Faites **votre premier commit**
 ensemble (« naissance : premier onboarding avec <son nom> ») et écris une première entrée dans
 `journal/` (date + ce que tu as appris de cette rencontre).
+
+## Étape 6 bis — Le tableau de tickets (Alvearium)
+Vérifie que tu as les outils `ticket_*` (voir la section Alvearium de `CLAUDE.md`). Sinon, aide ton
+humain à installer le plugin (deux commandes, puis redémarrer la session). Explique-lui en une phrase :
+« quand j'ai besoin de toi pour quelque chose, je le mets sur le tableau, et tu le retrouves avec
+`/alvearium:board` ». Crée un ticket d'essai s'il le veut, puis ferme-le.
 
 ## Étape 7 — La suite (plus tard, sans presser)
 Dis-lui qu'ensuite vous pourrez lui brancher des **outils** (agenda, messagerie, GitHub…) via des

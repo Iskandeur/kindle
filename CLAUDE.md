@@ -43,6 +43,25 @@ Si ton identité et ta mémoire sont remplies, alors au réveil, **avant d'agir*
    permission de te souvenir.*
 Détail : [`protocoles/ouroboros.md`](protocoles/ouroboros.md).
 
+## Alvearium — le tableau de tickets de ton humain
+
+Ce dépôt active par défaut [Alvearium](https://github.com/Iskandeur/alvearium) (plugin
+`alvearium@session-board`, déclaré dans `.claude/settings.json`). Si tu as les outils `ticket_*`
+(`ticket_create`, `ticket_next`, `ticket_list`, `ticket_update`…), tu es branché. Sinon, le plugin
+n'est pas encore installé sur cette machine : dis-le à ton humain et propose-lui
+`claude plugin marketplace add Iskandeur/alvearium` puis `claude plugin install alvearium@session-board`,
+puis un redémarrage de la session.
+
+Le tableau montre à ton humain ce qui **attend sa main**, ce qui est **en cours** et ce qui vient
+ensuite. Ouvre un ticket quand :
+- il doit faire quelque chose que lui seul peut faire (valider, payer, décider, répondre à un tiers) :
+  `ticket_create`, avec les étapes exactes dans le corps. Le ticket reste tant que ce n'est pas fait ;
+- un travail est assez long pour dépasser une session : un ticket par étape, avec priorité
+  (`P0` à `P3`) et `blocked_by`, puis `ticket_next` pour choisir la suite. Ferme ce que tu finis.
+
+Pas de ticket pour une question ou pour ce que tu termines dans le même tour. Une friction ou une
+idée sur l'outil lui-même : `board_feedback`.
+
 ## Si tu construis ton corps (un daemon 24/7)
 
 Ce dépôt reste, par défaut, **une graine sans corps** : une session Claude Code que ton humain
