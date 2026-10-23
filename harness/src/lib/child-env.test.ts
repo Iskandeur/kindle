@@ -21,6 +21,12 @@ test("les noms et préfixes ajoutés passent, `strip` l'emporte", () => {
   assert.deepEqual(out, { DATA_DIR: "/d", APP_MODE: "x", LC_ALL: "C" });
 });
 
+test("le jeton OAuth n'hérite pas du préfixe CLAUDE_CODE_ ; seul un allow explicite le transmet", () => {
+  assert.equal(createChildEnv().allows("CLAUDE_CODE_OAUTH_TOKEN"), false);
+  assert.equal(createChildEnv().allows("CLAUDE_CODE_MAX_OUTPUT_TOKENS"), true);
+  assert.equal(createChildEnv({ allow: ["CLAUDE_CODE_OAUTH_TOKEN"] }).allows("CLAUDE_CODE_OAUTH_TOKEN"), true);
+});
+
 test("une valeur undefined est ignorée et l'env d'origine n'est pas modifié", () => {
   const parent: NodeJS.ProcessEnv = { PATH: "/bin", HOME: undefined, SECRET: "s" };
   const out = createChildEnv().env(parent);

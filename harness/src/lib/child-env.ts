@@ -40,6 +40,13 @@ export const SYSTEM_ENV_PREFIXES: readonly string[] = ["LC_", "CLAUDE_CODE_", "D
  */
 export const ALWAYS_STRIPPED: readonly string[] = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_PLUGIN_DIRS"];
 
+/**
+ * Secrets qu'un préfixe système attraperait (`CLAUDE_CODE_OAUTH_TOKEN` est le jeton de l'abonnement) :
+ * retirés par défaut, transmis seulement si `policy.allow` les nomme explicitement (cas d'un enfant
+ * `claude` qui s'authentifie par l'env plutôt que par son fichier d'identifiants).
+ */
+export const PREFIX_SECRETS: readonly string[] = ["CLAUDE_CODE_OAUTH_TOKEN"];
+
 export interface ChildEnvPolicy {
   /** Noms exacts transmis en plus du système (chemins du daemon, identifiants non secrets, secrets que
    *  tes scripts lisent vraiment dans leur environnement). */
@@ -64,7 +71,12 @@ export interface ChildEnvFilter {
 export function createChildEnv(policy: ChildEnvPolicy = {}): ChildEnvFilter {
   const allow = new Set<string>([...SYSTEM_ENV, ...(policy.allow ?? [])]);
   const prefixes = [...SYSTEM_ENV_PREFIXES, ...(policy.allowPrefixes ?? [])];
-  const stripped = new Set<string>([...ALWAYS_STRIPPED, ...(policy.strip ?? [])]);
+  const explicit = new Set<string>(policy.allow ?? []);
+  const stripped = new Set<string>([
+    ...ALWAYS_STRIPPED,
+    ...PREFIX_SECRETS.filter((s) => !explicit.has(s)),
+    ...(policy.strip ?? []),
+  ]);
   const allows = (name: string): boolean => {
     if (stripped.has(name)) return false;
     return allow.has(name) || prefixes.some((p) => name.startsWith(p));
