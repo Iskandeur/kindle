@@ -11,6 +11,7 @@
  * |---------------------|------------------------------------|------------------------------------|
  * | `claude`            | `claude -p` dans un dossier temp.  | `claude -p` dans `cwd`             |
  * | `openai-compatible` | HTTP direct (`engine-openai.ts`)   | OpenCode (`engine-opencode.ts`)    |
+ * | `opencode`          | OpenCode, sans outil ni MCP        | OpenCode (`engine-opencode.ts`)    |
  *
  * Le chemin `claude` est celui d'avant ce module, argument pour argument.
  */
@@ -19,7 +20,7 @@ import { tmpdir } from "node:os";
 import { modelFor, type EngineConfig } from "./engine-config.ts";
 import { runClaude } from "./engine-claude.ts";
 import { chatOpenAI, type LocalTool } from "./engine-openai.ts";
-import { mcpFromClaude, runOpencode } from "./engine-opencode.ts";
+import { engineLabel, mcpFromClaude, runOpencode } from "./engine-opencode.ts";
 import type { TurnRequest, TurnResult } from "./engine-types.ts";
 
 export type { TurnRequest, TurnResult } from "./engine-types.ts";
@@ -43,15 +44,19 @@ export async function runTurn(cfg: EngineConfig, req: TurnRequest, deps: TurnDep
   if (cfg.kind === "claude") {
     return runClaude(cfg, { ...req, cwd: req.tools ? req.cwd : (req.cwd ?? tmpdir()) }, model);
   }
-  // openai-compatible : `model` est toujours posé (readEngineConfig exige MODELE_FORT).
+  // openai-compatible et opencode : `model` est toujours posé (readEngineConfig exige MODELE_FORT).
   const m = model as string;
-  if (req.tools && !deps.localTools) {
+  if (cfg.kind === "opencode" && !req.tools) {
+    // Texte seul : OpenCode aussi, mais sans outil ni MCP, dans un dossier temporaire (pas l'âme de l'agent).
+    return runOpencode(cfg, { ...req, cwd: req.cwd ?? tmpdir() }, m, { noTools: true, instructions: [], env: deps.env });
+  }
+  if (req.tools && (cfg.kind === "opencode" || !deps.localTools)) {
     let mcp = {};
     if (req.mcpConfig) {
       try {
         mcp = mcpFromClaude(JSON.parse(readFileSync(req.mcpConfig, "utf8")));
       } catch (e) {
-        return { ok: false, text: "", engine: "openai-compatible/opencode", model: m, costUsd: null, usage: { input: null, output: null }, toolCalls: [], error: `config MCP illisible (${req.mcpConfig}) : ${(e as Error).message}` };
+        return { ok: false, text: "", engine: engineLabel(cfg), model: m, costUsd: null, usage: { input: null, output: null }, toolCalls: [], error: `config MCP illisible (${req.mcpConfig}) : ${(e as Error).message}` };
       }
     }
     return runOpencode(cfg, req, m, { mcp, allowAll: cfg.claudePermissionMode === "bypassPermissions", bashAllow: deps.bashAllow, env: deps.env });

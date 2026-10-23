@@ -9,6 +9,14 @@
  *    d'entreprise… Les appels simples partent en HTTP direct ; les tours AVEC OUTILS (bash, édition,
  *    MCP) passent par OpenCode, un CLI agentique libre qui accepte ce fournisseur (`engine-opencode.ts`).
  *
+ *  - `opencode` : OpenCode lui-même est le moteur, avec SES fournisseurs et SES identifiants
+ *    (`opencode auth login`, OpenCode Zen et ses modèles gratuits, abonnements, clés dans son magasin).
+ *    Tous les tours passent par `opencode run`, texte seul compris. Les modèles s'écrivent au format
+ *    OpenCode `fournisseur/modèle` (`opencode models` les liste) :
+ *
+ *        KINDLE_ENGINE=opencode
+ *        MODELE_FORT=opencode/deepseek-v4.1-flash-free
+ *
  * Les modèles se nomment par RÔLE, jamais par un nom de famille en dur : `MODELE_RAPIDE` (trier, classer,
  * répondre à un « ok ») et `MODELE_FORT` (le vrai travail). Brancher ton API tient en trois lignes :
  *
@@ -25,7 +33,7 @@
  * Module PUR : `readEngineConfig(env)` prend l'environnement en argument (testable sans rien poser).
  */
 
-export type EngineKind = "claude" | "openai-compatible";
+export type EngineKind = "claude" | "openai-compatible" | "opencode";
 export type ModelRole = "rapide" | "fort";
 /** `abonnement` = quota mesuré par le fournisseur (Claude) ; `illimite` = déclaré illimité par toi ;
  *  `non-mesure` = le fournisseur n'en dit rien et tu n'as rien déclaré. */
@@ -56,13 +64,14 @@ export interface ConfigResult {
   warnings: string[];
 }
 
-export const ENGINE_KINDS: EngineKind[] = ["claude", "openai-compatible"];
+export const ENGINE_KINDS: EngineKind[] = ["claude", "openai-compatible", "opencode"];
 const KIND_ALIASES: Record<string, EngineKind> = {
   claude: "claude",
   anthropic: "claude",
   "openai-compatible": "openai-compatible",
   openai: "openai-compatible",
   "openai-compat": "openai-compatible",
+  opencode: "opencode",
 };
 
 type Env = Record<string, string | undefined>;
@@ -111,6 +120,12 @@ export function readEngineConfig(env: Env = process.env): ConfigResult {
     apiKey = pick(env, "KINDLE_API_KEY");
     if (!apiKey) warnings.push("KINDLE_API_KEY vide : normal pour un serveur local (Ollama, vLLM sans auth), sinon les appels rendront 401.");
     if (!fortEnv) errors.push("MODELE_FORT manque : le nom exact du modèle chez ton fournisseur (voir `kindle doctor`, qui liste /models).");
+  } else if (kind === "opencode") {
+    if (!fortEnv) errors.push("MODELE_FORT manque : un id OpenCode « fournisseur/modèle » (`opencode models` les liste, ex. opencode/deepseek-v4.1-flash-free).");
+    for (const [role, m] of [["MODELE_FORT", models.fort], ["MODELE_RAPIDE", models.rapide]] as const) {
+      if (m && !/^[^/\s]+\/\S+$/.test(m)) errors.push(`${role}=« ${m} » : un modèle OpenCode s'écrit « fournisseur/modèle » (ex. opencode/deepseek-v4.1-flash-free).`);
+    }
+    if (baseRaw) warnings.push("KINDLE_BASE_URL est ignoré avec KINDLE_ENGINE=opencode : déclare ton fournisseur dans OpenCode (`opencode auth login`) ou choisis le moteur openai-compatible.");
   } else if (baseRaw) {
     warnings.push("KINDLE_BASE_URL est posé mais KINDLE_ENGINE=claude : il est ignoré.");
   }

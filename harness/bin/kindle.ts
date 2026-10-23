@@ -66,6 +66,29 @@ async function doctor(cfg: EngineConfig): Promise<boolean> {
       ko(`« ${cfg.claudeBin} » introuvable : npm i -g @anthropic-ai/claude-code, puis \`claude\` une fois pour te connecter.`);
       return false;
     }
+  } else if (cfg.kind === "opencode") {
+    const v = binVersion(cfg.opencodeBin);
+    if (!v) {
+      ko(`« ${cfg.opencodeBin} » introuvable : npm i -g opencode-ai, puis \`opencode auth login\` (ou un modèle gratuit d'OpenCode Zen).`);
+      return false;
+    }
+    ok(`OpenCode présent (${v})`);
+    const ls = spawnSync(cfg.opencodeBin, ["models"], { encoding: "utf8", timeout: 60_000 });
+    const known = ls.status === 0 ? ls.stdout.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+    if (known.length) {
+      ok(`${known.length} modèle(s) connu(s) d'OpenCode`);
+      for (const role of ["fort", "rapide"] as const) {
+        const m = cfg.models[role] as string;
+        if (!known.includes(m)) {
+          ko(`MODELE_${role.toUpperCase()}=« ${m} » absent de \`opencode models\`. Exemples : ${known.slice(0, 8).join(", ")}`);
+          good = false;
+        }
+      }
+    } else note("`opencode models` n'a rien rendu : on tente quand même un tour.");
+    const settings = join(repo, ".claude", "settings.json");
+    if (existsSync(settings) && /"hooks"\s*:/.test(readFileSync(settings, "utf8"))) {
+      ko("`.claude/settings.json` déclare des hooks : ils ne tournent PAS sous OpenCode. Voir harness/docs/brancher-ton-api.md § 6.");
+    }
   } else {
     const list = await listModels(cfg.baseUrl as string, cfg.apiKey);
     if (!list.ok) {
@@ -143,15 +166,15 @@ async function main(): Promise<number> {
     case "opencode-config": {
       const cfg = loadConfig();
       if (!cfg) return 1;
-      if (cfg.kind !== "openai-compatible") {
-        ko("opencode-config sert au moteur openai-compatible (pose KINDLE_BASE_URL et MODELE_FORT).");
+      if (cfg.kind === "claude") {
+        ko("opencode-config sert aux moteurs openai-compatible (KINDLE_BASE_URL + MODELE_FORT) et opencode (KINDLE_ENGINE=opencode + MODELE_FORT).");
         return 1;
       }
       const conf = JSON.stringify(buildOpencodeConfig(cfg, { mcp: mcpOfRepo() }), null, 2) + "\n";
       if (flag("--write")) {
         const out = join(repo, "opencode.json");
         writeFileSync(out, conf);
-        ok(`écrit : ${out} (sans la clé : OpenCode la lit dans KINDLE_API_KEY)`);
+        ok(`écrit : ${out} ${cfg.kind === "opencode" ? "(aucun fournisseur déclaré : OpenCode garde ses propres identifiants)" : "(sans la clé : OpenCode la lit dans KINDLE_API_KEY)"}`);
       } else process.stdout.write(conf);
       return 0;
     }
