@@ -135,10 +135,21 @@ test("sensDuDossier", () => {
   assert.equal(sensDuDossier({ serrures: "touchees", serruresSens: "neutre" }), "elargit");
 });
 
-test("verifierPreuveSerrures : la preuve doit se retrouver dans le diff", () => {
-  const v = { serrures: "touchees" as const, serruresSens: "restreint" as const, serruresPreuve: "allow = false" };
-  assert.equal(verifierPreuveSerrures(v, "@@\n-allow = true\n+allow = false\n").serruresSens, "restreint");
-  assert.equal(verifierPreuveSerrures(v, "@@\n+autre chose\n").serruresSens, "elargit");
+test("verifierPreuveSerrures : la preuve doit être une ligne + ou - du diff, signe compris ; sinon élargit", () => {
+  const v = { serrures: "touchees" as const, serruresSens: "restreint" as const, serruresPreuve: "+allow = false;" };
+  const diff = "--- a/x\n+++ b/x\n@@ -1,3 +1,3 @@ function reglage()\n contexte inchangé ici\n-allow = true;\n+allow = false;\n";
+  const sens = (preuve: string | undefined) => verifierPreuveSerrures({ ...v, serruresPreuve: preuve }, diff).serruresSens;
+  assert.equal(verifierPreuveSerrures(v, diff).serruresSens, "restreint");
+  assert.equal(sens("-allow = true;"), "restreint");
+  assert.equal(sens("+  allow = false;  "), "restreint");
+  assert.equal(sens("+contexte inchangé ici"), "elargit", "contexte");
+  assert.equal(sens(" contexte inchangé ici"), "elargit", "contexte sans signe");
+  assert.equal(sens("+++ b/x"), "elargit", "en-tête +++");
+  assert.equal(sens("@@ -1,3 +1,3 @@ function reglage()"), "elargit", "en-tête @@");
+  assert.equal(sens("+allow = fal"), "elargit", "sous-chaîne");
+  assert.equal(sens("allow = false;"), "elargit", "sans signe");
+  assert.equal(sens("-allow = false;"), "elargit", "mauvais signe");
+  assert.equal(sens(undefined), "elargit", "preuve absente");
   assert.deepEqual(verifierPreuveSerrures({ serrures: "aucune" as const }, ""), { serrures: "aucune" });
 });
 

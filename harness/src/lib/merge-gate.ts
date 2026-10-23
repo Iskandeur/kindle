@@ -119,14 +119,16 @@ export function sensDuDossier(d: Pick<DossierFusion, "serrures" | "serruresSens"
   return "elargit";
 }
 
-/** Une preuve de sens n'est valable que si la ligne citée se retrouve réellement dans le diff. Sinon le
- *  sens retombe à `elargit`. PUR. */
+/** Une preuve de sens n'est valable que si c'est une ligne ENTIÈRE ajoutée ou retirée du diff relu (préfixe `+` ou
+ *  `-` compris, en-têtes `+++` / `---` exclus, espaces de bord ignorés, 12 caractères utiles au moins). Une sous-chaîne,
+ *  une ligne de contexte ou un en-tête ne valent rien : le sens retombe à `elargit`. PUR. */
 export function verifierPreuveSerrures<T extends { serrures: Serrures; serruresSens?: SensSerrures; serruresPreuve?: string }>(v: T, diff: string): T {
-  if (v.serrures !== "touchees") return v;
-  const preuve = (v.serruresPreuve ?? "").trim();
-  const trouvee = preuve.length > 0 && diff.split("\n").some((l) => l.replace(/^[+-]/, "").trim().includes(preuve));
-  if ((v.serruresSens === "restreint" || v.serruresSens === "neutre") && trouvee) return v;
-  return { ...v, serruresSens: "elargit" };
+  if (v.serrures !== "touchees" || (v.serruresSens !== "restreint" && v.serruresSens !== "neutre")) return v;
+  const m = /^([+-])\s*(.*)$/.exec((v.serruresPreuve ?? "").trim());
+  const utile = m ? m[2].trim() : "";
+  const lignes = diff.split("\n").filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)( |$)/.test(l));
+  const trouve = !!m && utile.length >= 12 && lignes.some((l) => l[0] === m[1] && l.slice(1).trim() === utile);
+  return trouve ? v : { ...v, serruresSens: "elargit" };
 }
 
 /** Deux sha désignent la même tête si l'un est le préfixe de l'autre (court contre long). Vide = jamais. */
