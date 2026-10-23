@@ -14,9 +14,9 @@
  * passage d'un dépôt en public reste à `github-visibility.ts`. L'autorisation est la même : une demande
  * d'approbation liée à l'acte exact, l'accord de l'humain, puis la même commande, une fois.
  *
- * Limites : la forme seulement (un script qui appelle l'API n'est pas vu), et seulement dans l'agent qui
- * passe par ce hook. Les outils MCP de déploiement ne passent pas par une commande Bash : ils demandent
- * leur propre entrée de hook. Faux positifs acceptés (une demande de plus) ; le silence, non.
+ * À brancher sur chaque chemin de sortie de ton agent : ce module lit les commandes Bash, donc tes outils
+ * MCP de déploiement demandent leur propre entrée de hook. Faux positifs acceptés (une demande de plus) ;
+ * le silence, non.
  */
 import { shellSegments, stripHeredocs } from "./github-visibility.ts";
 
