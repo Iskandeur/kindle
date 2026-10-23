@@ -31,6 +31,28 @@ function fakeBin(name: string, body: string): string {
 
 // ————— Config —————
 
+test("config : bypassPermissions est refusé sans KINDLE_ALLOW_BYPASS=1, et averti avec", () => {
+  const sans = readEngineConfig({ ...THREE_LINES, KINDLE_CLAUDE_PERMISSION_MODE: "bypassPermissions" });
+  assert.equal(sans.config, null);
+  assert.match(sans.errors.join(" "), /KINDLE_ALLOW_BYPASS=1/);
+  const claude = readEngineConfig({ KINDLE_CLAUDE_PERMISSION_MODE: "bypassPermissions" });
+  assert.equal(claude.config, null);
+  const avec = readEngineConfig({ ...THREE_LINES, KINDLE_CLAUDE_PERMISSION_MODE: "bypassPermissions", KINDLE_ALLOW_BYPASS: "1" });
+  assert.deepEqual(avec.errors, []);
+  assert.equal(avec.config?.claudePermissionMode, "bypassPermissions");
+  assert.match(avec.warnings.join(" "), /bash libre/);
+});
+
+test("opencode : bashAllow ouvre une seule commande, le reste de bash reste en ask", () => {
+  const c = cfgOf(THREE_LINES);
+  assert.deepEqual(buildOpencodeConfig(c, { bashAllow: ["echo kindle-ok"] }).permission, {
+    edit: "allow",
+    bash: { "*": "ask", "echo kindle-ok": "allow" },
+    webfetch: "ask",
+  });
+  assert.deepEqual(buildOpencodeConfig(c).permission, { edit: "allow", bash: "ask", webfetch: "ask" });
+});
+
 test("config : rien de posé = moteur claude, aucun modèle forcé (le CLI garde son défaut)", () => {
   const c = cfgOf({});
   assert.equal(c.kind, "claude");
@@ -323,7 +345,7 @@ test("OpenCode réel : bash puis MCP, hors réseau (sauté si OpenCode n'est pas
     const mcpFile = join(root, "mcp.json");
     writeFileSync(mcpFile, JSON.stringify({ mcpServers: { kindletest: { command: process.execPath, args: [join(import.meta.dirname, "fake-mcp-server.ts")] } } }));
     writeFileSync(join(root, "CLAUDE.md"), "Agent de test.\n");
-    const c = cfgOf({ KINDLE_BASE_URL: srv.baseUrl, KINDLE_API_KEY: "cle", MODELE_FORT: "modele-fort", KINDLE_OPENCODE_BIN: realOpencode, KINDLE_CLAUDE_PERMISSION_MODE: "bypassPermissions" });
+    const c = cfgOf({ KINDLE_BASE_URL: srv.baseUrl, KINDLE_API_KEY: "cle", MODELE_FORT: "modele-fort", KINDLE_OPENCODE_BIN: realOpencode, KINDLE_CLAUDE_PERMISSION_MODE: "bypassPermissions", KINDLE_ALLOW_BYPASS: "1" });
     const env = {
       PATH: process.env.PATH,
       HOME: root,

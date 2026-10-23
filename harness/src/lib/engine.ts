@@ -29,6 +29,8 @@ export interface TurnDeps {
   localTools?: LocalTool[];
   fetchFn?: typeof fetch;
   env?: Record<string, string | undefined>;
+  /** Commandes bash permises sans `bypassPermissions` (OpenCode), p. ex. le test de fumée de `kindle doctor`. */
+  bashAllow?: string[];
 }
 
 /** Le modèle effectivement demandé pour ce tour (`null` = défaut du CLI Claude). */
@@ -52,7 +54,7 @@ export async function runTurn(cfg: EngineConfig, req: TurnRequest, deps: TurnDep
         return { ok: false, text: "", engine: "openai-compatible/opencode", model: m, costUsd: null, usage: { input: null, output: null }, toolCalls: [], error: `config MCP illisible (${req.mcpConfig}) : ${(e as Error).message}` };
       }
     }
-    return runOpencode(cfg, req, m, { mcp, allowAll: cfg.claudePermissionMode === "bypassPermissions", env: deps.env });
+    return runOpencode(cfg, req, m, { mcp, allowAll: cfg.claudePermissionMode === "bypassPermissions", bashAllow: deps.bashAllow, env: deps.env });
   }
   return chatOpenAI({
     baseUrl: cfg.baseUrl as string,

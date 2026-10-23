@@ -137,6 +137,15 @@ export function readEngineConfig(env: Env = process.env): ConfigResult {
     warnings.push("Quota non mesuré : ce fournisseur n'en publie pas. Pose KINDLE_QUOTA=illimite s'il l'est vraiment ; rien n'est bridé dans les deux cas.");
   }
 
+  const permissionMode = pick(env, "KINDLE_CLAUDE_PERMISSION_MODE") ?? "acceptEdits";
+  if (permissionMode === "bypassPermissions") {
+    if (pick(env, "KINDLE_ALLOW_BYPASS") === "1") {
+      warnings.push("bypassPermissions autorisé (KINDLE_ALLOW_BYPASS=1) : un tour avec outils a bash libre, sans demander, avec ton environnement. Sous OpenCode, aucun hook PreToolUse ne tourne. À réserver à un dossier jetable.");
+    } else {
+      errors.push("KINDLE_CLAUDE_PERMISSION_MODE=bypassPermissions est refusé par défaut : le modèle aurait bash libre sans aucune confirmation. Si tu le veux vraiment, pose aussi KINDLE_ALLOW_BYPASS=1 (et lance dans un dossier jetable).");
+    }
+  }
+
   if (errors.length) return { config: null, errors, warnings };
   return {
     config: {
@@ -146,7 +155,7 @@ export function readEngineConfig(env: Env = process.env): ConfigResult {
       models,
       budgetUsd,
       quota,
-      claudePermissionMode: pick(env, "KINDLE_CLAUDE_PERMISSION_MODE") ?? "acceptEdits",
+      claudePermissionMode: permissionMode,
       claudeBin: pick(env, "KINDLE_CLAUDE_BIN") ?? "claude",
       opencodeBin: pick(env, "KINDLE_OPENCODE_BIN") ?? "opencode",
     },
