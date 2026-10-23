@@ -9,3 +9,6 @@ harness/dist/
 .env
 .env.*
 !.env.example
+
+# Config OpenCode générée par `kindle opencode-config --write` (ton URL et tes modèles, pas la clé).
+opencode.json

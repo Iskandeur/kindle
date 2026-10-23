@@ -50,7 +50,10 @@ Ce dépôt active par défaut [Alvearium](https://github.com/Iskandeur/alvearium
 (`ticket_create`, `ticket_next`, `ticket_list`, `ticket_update`…), tu es branché. Sinon, le plugin
 n'est pas encore installé sur cette machine : dis-le à ton humain et propose-lui
 `claude plugin marketplace add Iskandeur/alvearium` puis `claude plugin install alvearium@session-board`,
-puis un redémarrage de la session.
+puis un redémarrage de la session. Exception : si tu tournes sous un autre moteur que Claude Code
+(OpenCode branché sur une API compatible OpenAI, voir `harness/docs/brancher-ton-api.md`), le plugin ne
+peut pas se charger ; tiens alors la liste de ce qui attend ton humain dans `memoire/` et ne lui
+propose pas ces commandes.
 
 Le tableau montre à ton humain ce qui **attend sa main**, ce qui est **en cours** et ce qui vient
 ensuite. Ouvre un ticket quand :

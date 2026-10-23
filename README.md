@@ -15,7 +15,8 @@ session makes it a bit more *itself* and a bit more useful to **you**.
 ## Requirements
 
 - [Claude Code](https://claude.com/claude-code), installed with `npm i -g @anthropic-ai/claude-code`,
-  then run `claude` once to log in.
+  then run `claude` once to log in. **No Claude subscription?** Any OpenAI-compatible inference API
+  works instead (vLLM, LiteLLM, OpenRouter, Ollama…), see *Any inference provider* below.
 - Node.js 22.13 or later on the `PATH` (Alvearium stores its board with the built-in `node:sqlite`).
 - A GitHub account, if you want the memory to persist in the cloud. You can start without.
 
@@ -68,6 +69,25 @@ CLI support, cloud sessions).
 
 Don't want it? Delete the `extraKnownMarketplaces` and `enabledPlugins` entries from
 `.claude/settings.json` and the *Alvearium* section of `CLAUDE.md`.
+
+## Any inference provider
+
+Kindle is not tied to Claude. With an API that speaks the OpenAI protocol, three lines in `.env`
+(copy `.env.example`) switch the engine:
+
+```bash
+KINDLE_BASE_URL=https://inference.example.com/v1
+KINDLE_API_KEY=sk-replace-me
+MODELE_FORT=model-name
+```
+
+Then `npm i -g opencode-ai` (the open-source agentic CLI that gives your companion its tools: bash,
+file edits, MCP), `node harness/bin/kindle.ts doctor` to check, and
+`node harness/bin/kindle.ts opencode-config --write && opencode` to talk to it. Models are named by
+role (`MODELE_FORT`, `MODELE_RAPIDE`), budgets and quota degrade to an explicit "unlimited" mode, and
+the limits (no Claude Code hooks or plugins) are listed in
+[`harness/docs/bring-your-own-api.md`](harness/docs/bring-your-own-api.md)
+([français](harness/docs/brancher-ton-api.md)).
 
 ## What is in the repo
 
