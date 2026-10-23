@@ -38,9 +38,10 @@ export interface DenialSpec {
 export function buildDenials(spec: DenialSpec): string[] {
   const out: string[] = [];
   for (const v of spec.verbs ?? []) for (const f of verbVariants(v.script, v.subverb)) out.push(`Bash(*${f}*)`);
-  // Relatif au cwd (le worktree du job) ET absolu : un job écrit dans son worktree mais pourrait viser le chemin absolu du dépôt.
+  // Relatif au cwd (le worktree du job), à toute profondeur sous le cwd, ET absolu (`//`, syntaxe gitignore) :
+  // un job écrit dans son worktree mais pourrait viser le chemin absolu du dépôt.
   for (const d of spec.protectedDirs ?? []) {
-    for (const tool of ["Write", "Edit"]) out.push(`${tool}(${d}/**)`, `${tool}(**/${d}/**)`);
+    for (const tool of ["Write", "Edit"]) out.push(`${tool}(${d}/**)`, `${tool}(**/${d}/**)`, `${tool}(//**/${d}/**)`);
   }
   return out;
 }

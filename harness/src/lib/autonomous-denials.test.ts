@@ -13,6 +13,7 @@ test("buildDenials : verbes avec joker de chaque côté, dossiers en Write et Ed
   for (const tool of ["Write", "Edit"]) {
     assert.ok(d.includes(`${tool}(data/arbitrages/**)`));
     assert.ok(d.includes(`${tool}(**/data/arbitrages/**)`));
+    assert.ok(d.includes(`${tool}(//**/data/arbitrages/**)`));
   }
   assert.deepEqual(buildDenials({}), []);
 });
