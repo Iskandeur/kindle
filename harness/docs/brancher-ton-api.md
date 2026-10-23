@@ -103,7 +103,7 @@ Ce qui est propre à Claude Code et n'a pas d'équivalent ici :
   Ollama, OpenRouter. Le mode HTTP direct, lui, n'en a pas besoin.
 - **Permissions** : `KINDLE_CLAUDE_PERMISSION_MODE=acceptEdits` (défaut) permet l'édition et met bash
   et webfetch en « demander » ; sans humain, OpenCode refuse alors seul et le tour s'arrête, comme
-  `claude -p`. `bypassPermissions` permet tout. Ce que permet ton `opencode.json` de projet vaut aussi
+  `claude -p`. `bypassPermissions` permet tout (bash libre, sans hooks) : il est refusé tant que tu ne poses pas aussi `KINDLE_ALLOW_BYPASS=1`, et alors seulement dans un dossier jetable. Ce que permet ton `opencode.json` de projet vaut aussi
   pour les tours de fond (il est prioritaire) : n'y mets pas `"bash": "allow"` pour ta seule session.
 - **Secrets de l'environnement** : l'enfant OpenCode reçoit ton environnement, moins
   `ANTHROPIC_API_KEY`. Un modèle qui a bash peut donc lire les autres variables (jetons GitHub…).

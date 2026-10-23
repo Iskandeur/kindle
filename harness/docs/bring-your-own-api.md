@@ -86,7 +86,7 @@ What is specific to Claude Code and has no equivalent here:
   Direct HTTP mode doesn't need it.
 - **Permissions**: `KINDLE_CLAUDE_PERMISSION_MODE=acceptEdits` (default) allows edits and sets bash and
   webfetch to "ask"; with no human there, OpenCode rejects on its own and the turn stops, like
-  `claude -p`. `bypassPermissions` allows everything. Whatever your project `opencode.json` allows also
+  `claude -p`. `bypassPermissions` allows everything (free bash, no hooks): it is refused unless you also set `KINDLE_ALLOW_BYPASS=1`, and then only in a throwaway directory. Whatever your project `opencode.json` allows also
   applies to background turns (it takes precedence): don't put `"bash": "allow"` there just for your session.
 - **Environment secrets**: the OpenCode child gets your environment minus `ANTHROPIC_API_KEY`. A model
   with bash can read the other variables (GitHub tokens…). Run your daemon with a trimmed environment

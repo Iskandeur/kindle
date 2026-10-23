@@ -68,6 +68,8 @@ export interface OpencodeConfigOptions {
   mcp?: Record<string, OpencodeMcp>;
   /** Tout permettre (équivalent de `bypassPermissions`). */
   allowAll?: boolean;
+  /** Motifs de commandes bash permises sans demander (ex. `echo kindle-ok`) ; le reste de bash reste en `ask`. */
+  bashAllow?: string[];
 }
 
 /** La config OpenCode d'un compagnon kindle (PUR). Ne contient jamais la clé, seulement sa référence. */
@@ -92,7 +94,13 @@ export function buildOpencodeConfig(cfg: EngineConfig, o: OpencodeConfigOptions 
         models,
       },
     },
-    permission: o.allowAll ? { edit: "allow", bash: "allow", webfetch: "allow" } : { edit: "allow", bash: "ask", webfetch: "ask" },
+    permission: o.allowAll
+      ? { edit: "allow", bash: "allow", webfetch: "allow" }
+      : {
+          edit: "allow",
+          bash: o.bashAllow?.length ? { "*": "ask", ...Object.fromEntries(o.bashAllow.map((p) => [p, "allow"])) } : "ask",
+          webfetch: "ask",
+        },
   };
   if (o.mcp && Object.keys(o.mcp).length) conf.mcp = o.mcp;
   return conf;

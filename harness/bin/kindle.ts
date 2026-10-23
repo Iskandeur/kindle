@@ -110,15 +110,14 @@ async function doctorFake(): Promise<boolean> {
       MODELE_RAPIDE: "modele-rapide",
       KINDLE_QUOTA: "illimite",
       KINDLE_OPENCODE_BIN: process.env.KINDLE_OPENCODE_BIN,
-      KINDLE_CLAUDE_PERMISSION_MODE: "bypassPermissions",
     });
     if (!cfg) return false;
     let good = await doctor(cfg);
     if (binVersion(cfg.opencodeBin)) {
-      // Dans un dossier jetable, jamais dans le dépôt : ce tour a toutes les permissions.
+      // Dossier jetable, jamais le dépôt ; permissions minimales : seule la commande `echo kindle-ok` est permise.
       const scratch = mkdtempSync(join(tmpdir(), "kindle-doctor-"));
       writeFileSync(join(scratch, "CLAUDE.md"), "Agent de test de kindle doctor.\n");
-      const r = await runTurn(cfg, { prompt: "Lance la commande de test.", tools: true, cwd: scratch, timeoutMs: 180_000 });
+      const r = await runTurn(cfg, { prompt: "Lance la commande de test.", tools: true, cwd: scratch, timeoutMs: 180_000 }, { bashAllow: ["echo kindle-ok"] });
       rmSync(scratch, { recursive: true, force: true });
       if (r.ok && r.toolCalls.includes("bash")) ok(`un tour avec outil via OpenCode : ${r.toolCalls.join(", ")} → « ${r.text} »`);
       else {
