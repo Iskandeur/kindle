@@ -30,7 +30,7 @@ test("identifiant de messagerie : le format est détecté", () => {
 
 test("IP : privées/doc/résolveurs sûrs, une IP publique non", () => {
   assert.deepEqual(rules("192.168.1.10 10.0.0.1 127.0.0.1 203.0.113.9 8.8.8.8"), []);
-  assert.deepEqual(rules("server 51.38.12.77"), ["ip-address"]);
+  assert.deepEqual(rules("server 93.184.216.34"), ["ip-address"]);
   assert.deepEqual(rules("version 1.2.3"), []);
 });
 
