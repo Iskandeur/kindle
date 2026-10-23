@@ -132,13 +132,31 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * vérifié PAR réveil dû : si la fenêtre glissante de 24h est déjà pleine, ce réveil est sauté (voir
  * l'en-tête de fichier pour ce que "sauté" veut dire selon récurrent/unique).
  */
+/**
+ * Porte facultative consultée AVANT le budget, réveil par réveil (voir `lib/sensors.ts`).
+ * `undefined` = pas concerné, le réveil suit son cours. `{ fire: false }` = le portier n'a rien vu :
+ * un récurrent est réarmé sans session et sans consommer de budget (un réveil UNIQUE ignore ce
+ * verdict : il n'a qu'un tir, le fermer en silence le perdrait). `{ fire: true, intent }` remplace
+ * l'intent transmis (balise retirée, note du capteur ajoutée).
+ */
+export type WakeGate = (w: WakeRow) => { fire: boolean; intent?: string } | undefined;
+
 export function processDueWakes(
   store: WakeStore,
   onEvent: (ev: WakeEvent) => void,
   now: number = Date.now(),
   maxPerDay: number = maxWakesPerDay(),
+  gate?: WakeGate,
 ): void {
   for (const w of store.dueWakes(now)) {
+    const recurrent = !!(w.recurrence_ms && w.recurrence_ms > 0);
+    const verdict = gate?.(w);
+    if (verdict && !verdict.fire && recurrent) {
+      // Portier muet : ni session, ni fire enregistré (le budget ne compte que les vrais réveils).
+      store.rescheduleWake(w.id, nextOccurrence(w.due_at, w.recurrence_ms!, now));
+      continue;
+    }
+    const intent = verdict?.fire && verdict.intent !== undefined ? verdict.intent : w.intent;
     let fire = true;
     const firedRecently = store.firesSince(now - DAY_MS);
     if (firedRecently >= maxPerDay) {
@@ -150,7 +168,7 @@ export function processDueWakes(
 
     if (fire) {
       store.recordFire(w.id, now);
-      onEvent({ id: w.id, intent: w.intent, dueAt: w.due_at, firedAt: now });
+      onEvent({ id: w.id, intent, dueAt: w.due_at, firedAt: now });
     }
 
     // Récurrent → réarmé à la prochaine échéance, qu'il ait tiré ou non (sinon un budget plein
@@ -165,13 +183,31 @@ export function processDueWakes(
   }
 }
 
-export function startScheduler(store: WakeStore, onEvent: (ev: WakeEvent) => void, intervalMs = 60_000): NodeJS.Timeout {
+/**
+ * `prefetchGate` (facultatif) : appelé à chaque tick avec les réveils dus, il rend la porte du tick
+ * (typiquement `(due) => prefetchSensorGate(due, { registry })`). Il est ASYNCHRONE (un capteur fait
+ * du réseau) ; `processDueWakes`, lui, reste synchrone. S'il lève, le tick réveille sans porte.
+ */
+export function startScheduler(
+  store: WakeStore,
+  onEvent: (ev: WakeEvent) => void,
+  intervalMs = 60_000,
+  prefetchGate?: (due: WakeRow[]) => Promise<WakeGate | undefined>,
+): NodeJS.Timeout {
   let running = false; // garde-fou : un tick ne doit pas chevaucher le suivant.
-  const tick = (): void => {
+  const tick = async (): Promise<void> => {
     if (running) return;
     running = true;
     try {
-      processDueWakes(store, onEvent);
+      let gate: WakeGate | undefined;
+      if (prefetchGate) {
+        try {
+          gate = await prefetchGate(store.dueWakes(Date.now()));
+        } catch (e) {
+          console.error("[scheduler] porte indisponible, tick sans porte :", (e as Error).message);
+        }
+      }
+      processDueWakes(store, onEvent, Date.now(), maxWakesPerDay(), gate);
     } catch (e) {
       console.error("[scheduler] tick en erreur :", (e as Error).message);
     } finally {
