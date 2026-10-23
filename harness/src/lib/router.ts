@@ -24,6 +24,8 @@
  */
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
+import type { EngineConfig } from "./engine-config.ts";
+import { chatOpenAI } from "./engine-openai.ts";
 
 /** Modèle qui fait la classification — le plus rapide/économique de ta gamme. */
 export const ROUTER_MODEL = "claude-haiku-4-5";
@@ -32,6 +34,41 @@ export const ROUTER_MODEL = "claude-haiku-4-5";
  *  famille Claude (documentés publiquement) — remplace par la gamme que TU utilises réellement. */
 export const ROUTE_MODELS = ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-4-1"];
 export const ROUTE_EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+
+/** Une cible du routeur : l'id du modèle et la ligne qui dit au classificateur quand le choisir. */
+export interface RouteModel {
+  id: string;
+  use: string;
+}
+
+/** La gamme par défaut (Claude), dans l'ordre de `ROUTE_MODELS`. */
+export const CLAUDE_ROUTE_MODELS: RouteModel[] = [
+  { id: "claude-haiku-4-5", use: "trivial (salutation, « ok », « ça va », accusé, emoji, question ultra-simple)." },
+  { id: "claude-sonnet-5", use: "moyen (question factuelle courte, petite reformulation, info rapide sans enjeu)." },
+  { id: "claude-opus-4-1", use: "complexe (code, analyse, décision, tâche multi-étapes, sujet sensible, ambigu, émotionnel)." },
+];
+
+/**
+ * La gamme du routeur pour un moteur donné, du moins au plus capable. `claude` sans `MODELE_RAPIDE` ni
+ * `MODELE_FORT` : la gamme Claude ci-dessus, inchangée. Sinon : les deux RÔLES de la config
+ * (`MODELE_RAPIDE` pour le trivial et le moyen, `MODELE_FORT` pour le complexe), un seul si ce sont les
+ * mêmes. PUR.
+ */
+export function routeModelsFor(cfg: EngineConfig | undefined): RouteModel[] {
+  if (!cfg || (cfg.kind === "claude" && !cfg.models.rapide && !cfg.models.fort)) return CLAUDE_ROUTE_MODELS;
+  const rapide = cfg.models.rapide ?? cfg.models.fort ?? ROUTER_MODEL;
+  const fort = cfg.models.fort ?? (cfg.kind === "claude" ? CLAUDE_ROUTE_MODELS[CLAUDE_ROUTE_MODELS.length - 1].id : rapide);
+  if (rapide === fort) return [{ id: fort, use: "tout message (un seul modèle configuré)." }];
+  return [
+    { id: rapide, use: "trivial ou moyen (salutation, « ok », accusé, question factuelle courte, info rapide sans enjeu)." },
+    { id: fort, use: "complexe (code, analyse, décision, tâche multi-étapes, sujet sensible, ambigu, émotionnel)." },
+  ];
+}
+
+/** Rangs d'une gamme (index dans la liste), pour le plancher et le cliquet. */
+export function ranksOf(models: RouteModel[]): Record<string, number> {
+  return Object.fromEntries(models.map((m, i) => [m.id, i]));
+}
 
 export interface RouteDecision {
   model: string;
@@ -71,9 +108,9 @@ const EFFORT_RANK: Record<string, number> = { low: 0, medium: 1, high: 2, xhigh:
 /** Relève `model` au plancher `floor` s'il est en dessous (jamais ne redescend ; un modèle inconnu
  *  de la table n'est jamais touché — voir MODEL_RANK). Absent (aucun modèle résolu) est traité comme
  *  en dessous de tout, comme l'effort absent dans `raiseEffort`. PUR. */
-export function raiseModel(model: string | undefined, floor: string): string {
-  const cur = model ? (MODEL_RANK[model] ?? UNKNOWN_MODEL_RANK) : -1;
-  const flr = MODEL_RANK[floor] ?? UNKNOWN_MODEL_RANK;
+export function raiseModel(model: string | undefined, floor: string, ranks: Record<string, number> = MODEL_RANK): string {
+  const cur = model ? (ranks[model] ?? UNKNOWN_MODEL_RANK) : -1;
+  const flr = ranks[floor] ?? UNKNOWN_MODEL_RANK;
   return flr > cur ? floor : (model ?? floor);
 }
 /** Relève `effort` au plancher `floor` s'il est en dessous ou absent (« auto »). PUR. */
@@ -132,10 +169,10 @@ function writeRatchet(store: Pick<RouterStore, "setSetting">, scopeId: string | 
  *  le max(rang) entre `opts` et le cliquet précédent (`prev`) — jamais en dessous de ce qui était déjà
  *  posé, monte si `opts` est plus haut. Sans `prev` (première pose / fenêtre expirée), le cliquet
  *  démarre à `opts` tel quel. `undefined` seulement si rien d'exploitable. PUR. */
-function nextRatchet(opts: EngineOptions, prev: RatchetFloor | undefined): RatchetFloor | undefined {
+function nextRatchet(opts: EngineOptions, prev: RatchetFloor | undefined, ranks: Record<string, number> = MODEL_RANK): RatchetFloor | undefined {
   if (!opts.model && !prev) return undefined;
   return {
-    model: prev ? raiseModel(opts.model, prev.model) : (opts.model as string),
+    model: prev ? raiseModel(opts.model, prev.model, ranks) : (opts.model as string),
     effort: prev ? raiseEffort(opts.effort, prev.effort) : (opts.effort ?? "low"),
   };
 }
@@ -234,7 +271,7 @@ export interface RouterTurn {
  *  ancien d'abord) = les tout derniers messages de CE fil, injectés en lecture seule pour que le
  *  routeur juge le MESSAGE courant à la lumière du fil plutôt qu'isolément — sans `history`,
  *  comportement inchangé. */
-export function buildRouterPrompt(ctx: string, history: RouterTurn[] = []): string {
+export function buildRouterPrompt(ctx: string, history: RouterTurn[] = [], models: RouteModel[] = CLAUDE_ROUTE_MODELS): string {
   const historyBlock =
     history.length === 0
       ? []
@@ -249,9 +286,7 @@ export function buildRouterPrompt(ctx: string, history: RouterTurn[] = []): stri
     ...historyBlock,
     "",
     "Modèles :",
-    "- claude-haiku-4-5 : trivial (salutation, « ok », « ça va », accusé, emoji, question ultra-simple).",
-    "- claude-sonnet-5 : moyen (question factuelle courte, petite reformulation, info rapide sans enjeu).",
-    "- claude-opus-4-1 : complexe (code, analyse, décision, tâche multi-étapes, sujet sensible, ambigu, émotionnel).",
+    ...models.map((m) => `- ${m.id} : ${m.use}`),
     "",
     "Effort : low (trivial) | medium (moyen) | high (complexe) | xhigh (très complexe) | max (critique).",
     "",
@@ -264,7 +299,7 @@ export function buildRouterPrompt(ctx: string, history: RouterTurn[] = []): stri
 }
 
 /** Parse + valide la sortie du routeur (PUR → testable). null si illisible ou hors allowlist. */
-export function parseRouterDecision(raw: string): RouteDecision | null {
+export function parseRouterDecision(raw: string, allowed: string[] = ROUTE_MODELS): RouteDecision | null {
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) return null;
   let o: unknown;
@@ -276,7 +311,7 @@ export function parseRouterDecision(raw: string): RouteDecision | null {
   if (!o || typeof o !== "object") return null;
   const r = o as Record<string, unknown>;
   if (typeof r.model !== "string" || typeof r.effort !== "string") return null;
-  if (!ROUTE_MODELS.includes(r.model)) return null;
+  if (!allowed.includes(r.model)) return null;
   if (!ROUTE_EFFORTS.includes(r.effort)) return null;
   return {
     model: r.model,
@@ -327,13 +362,34 @@ function appendRouterContext(store: Pick<RouterStore, "getSetting" | "setSetting
 
 /** Appelle le modèle léger pour classer un contexte. Timeout borné ; renvoie null sur TOUTE erreur
  *  (→ repli). cwd = un dossier temporaire (pas l'âme de l'agent) pour rester léger/rapide ; pas de
- *  config MCP (aucun outil nécessaire pour classer un message). */
+ *  config MCP (aucun outil nécessaire pour classer un message).
+ *
+ *  `engine` (optionnel, `readEngineConfig`) : sans lui, ou avec le moteur `claude` sans modèles
+ *  nommés, l'appel est celui d'avant (`claude -p … --model ROUTER_MODEL`). Moteur `claude` avec
+ *  `MODELE_RAPIDE` : ce modèle classe. Moteur `openai-compatible` : un appel HTTP direct à
+ *  `MODELE_RAPIDE`, et la gamme devient les deux rôles (`routeModelsFor`). */
 export function classifyRoute(
   ctx: string,
-  opts: { bin?: string; timeoutMs?: number; history?: RouterTurn[] } = {},
+  opts: { bin?: string; timeoutMs?: number; history?: RouterTurn[]; engine?: EngineConfig; fetchFn?: typeof fetch } = {},
 ): Promise<RouteDecision | null> {
-  const prompt = buildRouterPrompt(ctx, opts.history);
-  const args = ["-p", prompt, "--output-format", "json", "--model", ROUTER_MODEL, "--permission-mode", "default"];
+  const models = routeModelsFor(opts.engine);
+  const prompt = buildRouterPrompt(ctx, opts.history, models);
+  const allowed = models.map((m) => m.id);
+  if (opts.engine && opts.engine.kind === "openai-compatible") {
+    return chatOpenAI({
+      baseUrl: opts.engine.baseUrl as string,
+      apiKey: opts.engine.apiKey,
+      model: opts.engine.models.rapide as string,
+      prompt,
+      timeoutMs: opts.timeoutMs ?? 12000,
+      fetchFn: opts.fetchFn,
+    }).then(
+      (r) => (r.ok ? parseRouterDecision(r.text, allowed) : null),
+      () => null,
+    );
+  }
+  const routerModel = opts.engine?.models.rapide ?? ROUTER_MODEL;
+  const args = ["-p", prompt, "--output-format", "json", "--model", routerModel, "--permission-mode", "default"];
   const env = { ...process.env };
   delete env.ANTHROPIC_API_KEY; // jamais de clé API → auth standard de la sub-session, comme le moteur principal.
   return new Promise((resolve) => {
@@ -345,7 +401,7 @@ export function classifyRoute(
     };
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(opts.bin ?? "claude", args, { cwd: tmpdir(), env, stdio: ["ignore", "pipe", "pipe"] });
+      child = spawn(opts.bin ?? opts.engine?.claudeBin ?? "claude", args, { cwd: tmpdir(), env, stdio: ["ignore", "pipe", "pipe"] });
     } catch {
       return finish(null);
     }
@@ -369,7 +425,7 @@ export function classifyRoute(
       if (code !== 0) return finish(null);
       try {
         const j = JSON.parse(out) as { result?: string };
-        finish(parseRouterDecision(j.result ?? ""));
+        finish(parseRouterDecision(j.result ?? "", allowed));
       } catch {
         finish(null);
       }
@@ -406,8 +462,10 @@ export async function routeEngineOpts(
   base: EngineOptions,
   ctx: string,
   deps: {
-    classify?: (ctx: string, o: { bin?: string; timeoutMs?: number; history?: RouterTurn[] }) => Promise<RouteDecision | null>;
+    classify?: (ctx: string, o: { bin?: string; timeoutMs?: number; history?: RouterTurn[]; engine?: EngineConfig }) => Promise<RouteDecision | null>;
     timeoutMs?: number;
+    /** Moteur configuré (`readEngineConfig`) : choisit la gamme et la voie de classification. */
+    engine?: EngineConfig;
     nowMs?: number;
     ratchetWindowMs?: number;
   } = {},
@@ -417,16 +475,20 @@ export async function routeEngineOpts(
   const resolved = resolvePinnedOpts(store, base, scopeId);
   const { modelPinned, effortPinned } = readPins(store, scopeId);
   const now = deps.nowMs ?? Date.now();
+  const ranks = deps.engine ? ranksOf(routeModelsFor(deps.engine)) : MODEL_RANK;
   // Cliquet : lu AVANT d'appliquer quoi que ce soit, pour servir de plancher à CE tour ; réécrit plus
   // bas (via `nextRatchet`) avec les options EFFECTIVES de ce même tour, fenêtre glissante réarmée à `now`.
-  const ratchet = readRatchet(store, scopeId, now, deps.ratchetWindowMs ?? ROUTER_RATCHET_WINDOW_MS_DEFAULT);
+  const stored = readRatchet(store, scopeId, now, deps.ratchetWindowMs ?? ROUTER_RATCHET_WINDOW_MS_DEFAULT);
+  // Un cliquet posé sous une AUTRE gamme (changement de moteur) ne sert pas de plancher : son modèle
+  // n'existe peut-être pas chez ce fournisseur.
+  const ratchet = deps.engine && stored && !(stored.model in ranks) ? undefined : stored;
   const effectiveFloor = floor ?? ratchet;
   const applyFloor = (o: EngineOptions): EngineOptions =>
     !effectiveFloor
       ? o
       : {
           ...o,
-          model: modelPinned ? o.model : raiseModel(o.model, effectiveFloor.model),
+          model: modelPinned ? o.model : raiseModel(o.model, effectiveFloor.model, ranks),
           effort: effortPinned ? o.effort : raiseEffort(o.effort, effectiveFloor.effort),
         };
   // Contexte roulant de CE scope, lu AVANT d'y ajouter le message courant (cf. `buildRouterPrompt`).
@@ -436,7 +498,7 @@ export async function routeEngineOpts(
   // complets), car un pin manuel qui monte en gamme doit, lui aussi, poser le cliquet.
   const finish = (opts: EngineOptions, decision: RouteDecision | null): { opts: EngineOptions; decision: RouteDecision | null } => {
     appendRouterContext(store, scopeId, ctx, now);
-    const next = nextRatchet(opts, ratchet);
+    const next = nextRatchet(opts, ratchet, ranks);
     if (next) writeRatchet(store, scopeId, next, now);
     return { opts, decision };
   };
@@ -444,7 +506,7 @@ export async function routeEngineOpts(
   // plancher ne s'applique de toute façon jamais à un champ épinglé — pas la peine de le calculer).
   if (modelPinned && effortPinned) return finish(resolved, null);
   const classify = deps.classify ?? classifyRoute;
-  const decision = await classify(ctx, { bin: base.bin, timeoutMs: deps.timeoutMs, history });
+  const decision = await classify(ctx, { bin: base.bin, timeoutMs: deps.timeoutMs, history, ...(deps.engine ? { engine: deps.engine } : {}) });
   if (!decision) return finish(applyFloor(resolved), null); // repli sûr, plancher/cliquet quand même
   const opts: EngineOptions = applyFloor({
     ...resolved,
