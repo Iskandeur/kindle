@@ -235,7 +235,8 @@ test("opencode : la config référence la clé sans la contenir, déclare les de
   assert.equal(conf.model, "kindle/modele-fort");
   assert.equal(conf.small_model, "kindle/modele-rapide");
   assert.deepEqual(conf.instructions, ["CLAUDE.md"]);
-  assert.deepEqual(conf.permission, { edit: "allow", bash: "ask", webfetch: "allow" });
+  // acceptEdits (défaut) : comme `claude -p`, seule l'édition passe sans accord.
+  assert.deepEqual(conf.permission, { edit: "allow", bash: "ask", webfetch: "ask" });
   assert.deepEqual(buildOpencodeConfig(c, { allowAll: true }).permission, { edit: "allow", bash: "allow", webfetch: "allow" });
   assert.equal("mcp" in buildOpencodeConfig(c), false);
   assert.deepEqual(opencodeArgs({ prompt: "fais", cwd: "/depot" }, "modele-fort"), ["run", "--format", "json", "-m", "kindle/modele-fort", "--dir", "/depot", "fais"]);
@@ -277,20 +278,21 @@ test("opencode : runTurn avec outils lance OpenCode, config dans OPENCODE_CONFIG
 const conf = fs.readFileSync(process.env.OPENCODE_CONFIG, "utf8");
 const line = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
 line({ type: "step_start", part: {} });
-line({ type: "text", part: { text: JSON.stringify({ args: process.argv.slice(2), keyInFile: conf.includes("sk-test-123"), keyInEnv: process.env.KINDLE_API_KEY, mcp: JSON.parse(conf).mcp ?? null }) } });
+line({ type: "text", part: { text: JSON.stringify({ args: process.argv.slice(2), keyInFile: conf.includes("sk-test-123"), keyInEnv: process.env.KINDLE_API_KEY, anthropic: process.env.ANTHROPIC_API_KEY ?? null, mcp: JSON.parse(conf).mcp ?? null }) } });
 line({ type: "step_finish", part: { tokens: { input: 1, output: 1 }, cost: 0 } });`,
   );
   const dir = mkdtempSync(join(tmpdir(), "kindle-mcp-"));
   const mcpFile = join(dir, ".mcp.json");
   writeFileSync(mcpFile, JSON.stringify({ mcpServers: { outil: { command: "node", args: ["s.js"] } } }));
   const c = cfgOf({ ...THREE_LINES, KINDLE_OPENCODE_BIN: bin });
-  const r = await runTurn(c, { prompt: "fais", tools: true, cwd: dir, mcpConfig: mcpFile });
+  const r = await runTurn(c, { prompt: "fais", tools: true, cwd: dir, mcpConfig: mcpFile }, { env: { ...process.env, ANTHROPIC_API_KEY: "sk-ne-doit-pas-passer" } });
   assert.equal(r.ok, true, r.error);
   assert.equal(r.engine, "openai-compatible/opencode");
   const seen = JSON.parse(r.text);
   assert.deepEqual(seen.args, ["run", "--format", "json", "-m", "kindle/modele-fort", "--dir", dir, "fais"]);
   assert.equal(seen.keyInFile, false);
   assert.equal(seen.keyInEnv, "sk-test-123");
+  assert.equal(seen.anthropic, null);
   assert.deepEqual(seen.mcp, { outil: { type: "local", command: ["node", "s.js"], enabled: true } });
   const missing = await runTurn(cfgOf({ ...THREE_LINES, KINDLE_OPENCODE_BIN: join(dir, "absent") }), { prompt: "x", tools: true, cwd: dir });
   assert.equal(missing.ok, false);

@@ -9,11 +9,19 @@
  * La clé ne touche jamais le disque : la config générée dit `"apiKey": "{env:KINDLE_API_KEY}"` et la clé
  * passe par l'environnement de l'enfant. La config part dans un fichier temporaire désigné par
  * `OPENCODE_CONFIG` ; un `opencode.json` à la racine du dépôt reste prioritaire (c'est l'ordre de chargement
- * d'OpenCode), donc tes réglages à toi (permissions fines, autres MCP) l'emportent.
+ * d'OpenCode, vérifié sur la 1.19.4). Attention : ce qu'il PERMET vaut donc aussi pour les tours de fond,
+ * quel que soit `KINDLE_CLAUDE_PERMISSION_MODE`. Un `"bash": "allow"` posé là pour ta session élargit tous
+ * les tours.
  *
- * Permissions, alignées sur `--permission-mode` du moteur `claude` : `bypassPermissions` → tout est permis ;
- * tout autre mode → l'édition est permise, bash est en `ask`. En non interactif, OpenCode REFUSE seul un
- * `ask` (« auto-rejecting ») et le tour s'arrête là : le même comportement que `claude -p`.
+ * Permissions, au plus près de `--permission-mode` du moteur `claude` : `bypassPermissions` → tout est
+ * permis ; tout autre mode (`acceptEdits` par défaut) → seule l'édition est permise, bash et webfetch sont en
+ * `ask`. En non interactif, OpenCode REFUSE seul un `ask` (« auto-rejecting ») et le tour s'arrête là : le
+ * comportement de `claude -p` en `acceptEdits`. Lecture et recherche de fichiers restent permises dans les
+ * deux moteurs.
+ *
+ * L'enfant reçoit l'environnement du parent MOINS `ANTHROPIC_API_KEY` (comme le moteur `claude`). Le reste
+ * passe : un modèle qui a bash lit donc les autres secrets de ton environnement. Lance le daemon avec un
+ * environnement réduit (`env` de `runTurn`) si tu ne le veux pas.
  */
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -84,7 +92,7 @@ export function buildOpencodeConfig(cfg: EngineConfig, o: OpencodeConfigOptions 
         models,
       },
     },
-    permission: o.allowAll ? { edit: "allow", bash: "allow", webfetch: "allow" } : { edit: "allow", bash: "ask", webfetch: "allow" },
+    permission: o.allowAll ? { edit: "allow", bash: "allow", webfetch: "allow" } : { edit: "allow", bash: "ask", webfetch: "ask" },
   };
   if (o.mcp && Object.keys(o.mcp).length) conf.mcp = o.mcp;
   return conf;
@@ -197,7 +205,9 @@ export function runOpencode(cfg: EngineConfig, req: TurnRequest, model: string, 
     OPENCODE_DISABLE_AUTOUPDATE: "1",
     KINDLE_API_KEY: cfg.apiKey ?? "",
   };
+  delete env.ANTHROPIC_API_KEY;
   const cleanup = () => rmSync(dir, { recursive: true, force: true });
+  const timeoutMs = req.timeoutMs ?? 600_000;
   const fail = (error: string): TurnResult => ({
     ok: false,
     text: "",
@@ -228,8 +238,8 @@ export function runOpencode(cfg: EngineConfig, req: TurnRequest, model: string, 
     };
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
-      finish(fail(`délai dépassé (${req.timeoutMs} ms)`));
-    }, req.timeoutMs ?? 600_000);
+      finish(fail(`délai dépassé (${timeoutMs} ms)`));
+    }, timeoutMs);
     timer.unref?.();
     child.stdout?.on("data", (d) => (out += d));
     child.stderr?.on("data", (d) => (err += d));

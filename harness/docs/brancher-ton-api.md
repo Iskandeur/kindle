@@ -102,8 +102,15 @@ Ce qui est propre à Claude Code et n'a pas d'équivalent ici :
 - **OpenCode demande un fournisseur qui sait diffuser (`stream: true`).** C'est le cas de vLLM, LiteLLM,
   Ollama, OpenRouter. Le mode HTTP direct, lui, n'en a pas besoin.
 - **Permissions** : `KINDLE_CLAUDE_PERMISSION_MODE=acceptEdits` (défaut) permet l'édition et met bash
-  en « demander » ; sans humain, OpenCode refuse alors seul et le tour s'arrête, comme `claude -p`.
-  `bypassPermissions` permet tout.
+  et webfetch en « demander » ; sans humain, OpenCode refuse alors seul et le tour s'arrête, comme
+  `claude -p`. `bypassPermissions` permet tout. Ce que permet ton `opencode.json` de projet vaut aussi
+  pour les tours de fond (il est prioritaire) : n'y mets pas `"bash": "allow"` pour ta seule session.
+- **Secrets de l'environnement** : l'enfant OpenCode reçoit ton environnement, moins
+  `ANTHROPIC_API_KEY`. Un modèle qui a bash peut donc lire les autres variables (jetons GitHub…).
+  Lance ton daemon avec un environnement réduit si ton fournisseur n'est pas de confiance.
+- **Code tiers** : OpenCode charge le paquet `@ai-sdk/openai-compatible` pour parler à ton API. La
+  version 1.19.4 l'embarque (vérifié hors réseau) ; une autre version peut le télécharger depuis npm
+  au premier tour.
 
 ## 7. Variante sans code : garder Claude Code, changer le fournisseur
 

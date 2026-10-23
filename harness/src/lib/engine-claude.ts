@@ -64,6 +64,7 @@ function failed(model: string | null, error: string): TurnResult {
 export function runClaude(cfg: EngineConfig, req: TurnRequest, model: string | null): Promise<TurnResult> {
   const env = { ...process.env };
   delete env.ANTHROPIC_API_KEY; // garde-fou : l'auth du CLI, jamais une clé API.
+  const timeoutMs = req.timeoutMs ?? 600_000;
   return new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
     try {
@@ -82,8 +83,8 @@ export function runClaude(cfg: EngineConfig, req: TurnRequest, model: string | n
     };
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
-      finish(failed(model, `délai dépassé (${req.timeoutMs} ms)`));
-    }, req.timeoutMs ?? 600_000);
+      finish(failed(model, `délai dépassé (${timeoutMs} ms)`));
+    }, timeoutMs);
     timer.unref?.();
     child.stdout?.on("data", (d) => (out += d));
     child.stderr?.on("data", (d) => (err += d));

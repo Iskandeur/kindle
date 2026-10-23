@@ -478,7 +478,10 @@ export async function routeEngineOpts(
   const ranks = deps.engine ? ranksOf(routeModelsFor(deps.engine)) : MODEL_RANK;
   // Cliquet : lu AVANT d'appliquer quoi que ce soit, pour servir de plancher à CE tour ; réécrit plus
   // bas (via `nextRatchet`) avec les options EFFECTIVES de ce même tour, fenêtre glissante réarmée à `now`.
-  const ratchet = readRatchet(store, scopeId, now, deps.ratchetWindowMs ?? ROUTER_RATCHET_WINDOW_MS_DEFAULT);
+  const stored = readRatchet(store, scopeId, now, deps.ratchetWindowMs ?? ROUTER_RATCHET_WINDOW_MS_DEFAULT);
+  // Un cliquet posé sous une AUTRE gamme (changement de moteur) ne sert pas de plancher : son modèle
+  // n'existe peut-être pas chez ce fournisseur.
+  const ratchet = deps.engine && stored && !(stored.model in ranks) ? undefined : stored;
   const effectiveFloor = floor ?? ratchet;
   const applyFloor = (o: EngineOptions): EngineOptions =>
     !effectiveFloor

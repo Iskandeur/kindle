@@ -84,9 +84,15 @@ What is specific to Claude Code and has no equivalent here:
   model sold for function calling as `MODELE_FORT`.
 - **OpenCode needs a provider that streams (`stream: true`).** vLLM, LiteLLM, Ollama and OpenRouter do.
   Direct HTTP mode doesn't need it.
-- **Permissions**: `KINDLE_CLAUDE_PERMISSION_MODE=acceptEdits` (default) allows edits and sets bash to
-  "ask"; with no human there, OpenCode rejects on its own and the turn stops, like `claude -p`.
-  `bypassPermissions` allows everything.
+- **Permissions**: `KINDLE_CLAUDE_PERMISSION_MODE=acceptEdits` (default) allows edits and sets bash and
+  webfetch to "ask"; with no human there, OpenCode rejects on its own and the turn stops, like
+  `claude -p`. `bypassPermissions` allows everything. Whatever your project `opencode.json` allows also
+  applies to background turns (it takes precedence): don't put `"bash": "allow"` there just for your session.
+- **Environment secrets**: the OpenCode child gets your environment minus `ANTHROPIC_API_KEY`. A model
+  with bash can read the other variables (GitHub tokens…). Run your daemon with a trimmed environment
+  if you don't trust your provider.
+- **Third-party code**: OpenCode loads the `@ai-sdk/openai-compatible` package to talk to your API.
+  Version 1.19.4 bundles it (checked offline); another version may download it from npm on first use.
 
 ## 7. No-code variant: keep Claude Code, swap the provider
 

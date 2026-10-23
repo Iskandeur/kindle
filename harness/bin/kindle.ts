@@ -13,7 +13,8 @@
  * Code de sortie : 0 si tout va bien, 1 sinon.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describeConfig, readEngineConfig, type EngineConfig } from "../src/lib/engine-config.ts";
 import { runTurn } from "../src/lib/engine.ts";
@@ -80,6 +81,10 @@ async function doctor(cfg: EngineConfig): Promise<boolean> {
         }
       }
     }
+    const settings = join(repo, ".claude", "settings.json");
+    if (existsSync(settings) && /"hooks"\s*:/.test(readFileSync(settings, "utf8"))) {
+      ko("`.claude/settings.json` déclare des hooks : ils ne tournent PAS sous OpenCode (un garde-fou en PreToolUse, comme wa-guard, est inactif). Voir harness/docs/brancher-ton-api.md § 6.");
+    }
     const v = binVersion(cfg.opencodeBin);
     if (v) ok(`OpenCode présent (${v}) : les tours avec outils marcheront`);
     else note(`OpenCode absent : les tours AVEC OUTILS échoueront (npm i -g opencode-ai). Le texte seul marche sans lui.`);
@@ -110,7 +115,11 @@ async function doctorFake(): Promise<boolean> {
     if (!cfg) return false;
     let good = await doctor(cfg);
     if (binVersion(cfg.opencodeBin)) {
-      const r = await runTurn(cfg, { prompt: "Lance la commande de test.", tools: true, cwd: repo, timeoutMs: 180_000 });
+      // Dans un dossier jetable, jamais dans le dépôt : ce tour a toutes les permissions.
+      const scratch = mkdtempSync(join(tmpdir(), "kindle-doctor-"));
+      writeFileSync(join(scratch, "CLAUDE.md"), "Agent de test de kindle doctor.\n");
+      const r = await runTurn(cfg, { prompt: "Lance la commande de test.", tools: true, cwd: scratch, timeoutMs: 180_000 });
+      rmSync(scratch, { recursive: true, force: true });
       if (r.ok && r.toolCalls.includes("bash")) ok(`un tour avec outil via OpenCode : ${r.toolCalls.join(", ")} → « ${r.text} »`);
       else {
         ko(`un tour avec outil via OpenCode : ${r.error ?? "aucun outil appelé"}`);

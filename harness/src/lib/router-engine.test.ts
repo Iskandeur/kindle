@@ -54,6 +54,15 @@ test("classifyRoute : moteur OpenAI = un appel HTTP au modèle rapide, décision
   }
 });
 
+test("cliquet posé sous la gamme Claude : ignoré après passage à un fournisseur OpenAI", async () => {
+  const store = memStore();
+  store.setSetting("router_ratchet", JSON.stringify({ model: "claude-opus-4-1", effort: "high", at: Date.now() }));
+  const c = cfg({ KINDLE_BASE_URL: "http://127.0.0.1:1/v1", MODELE_FORT: "grand", MODELE_RAPIDE: "petit" });
+  const r = await routeEngineOpts(store, { model: "grand" }, "ok", { engine: c, classify: async () => ({ model: "petit", effort: "low" }) });
+  assert.equal(r.opts.model, "petit");
+  assert.equal(r.opts.effort, "low");
+});
+
 test("classifyRoute : fournisseur en panne = repli (null), jamais d'exception", async () => {
   const c = cfg({ KINDLE_BASE_URL: "http://127.0.0.1:9/v1", MODELE_FORT: "grand" });
   assert.equal(await classifyRoute("x", { engine: c, timeoutMs: 2000 }), null);
