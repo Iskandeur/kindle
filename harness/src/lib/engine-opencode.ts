@@ -70,45 +70,63 @@ export interface OpencodeConfigOptions {
   allowAll?: boolean;
   /** Motifs de commandes bash permises sans demander (ex. `echo kindle-ok`) ; le reste de bash reste en `ask`. */
   bashAllow?: string[];
+  /** Tour sans outils (texte seul) : édition, bash et web refusés, MCP non déclarés. */
+  noTools?: boolean;
 }
 
-/** La config OpenCode d'un compagnon kindle (PUR). Ne contient jamais la clé, seulement sa référence. */
+/** Id passé à `-m` : `kindle/<nom>` pour le fournisseur généré, l'id OpenCode tel quel pour le moteur `opencode`. */
+export function qualifiedModel(cfg: EngineConfig, model: string): string {
+  return cfg.kind === "opencode" ? model : `${OPENCODE_PROVIDER}/${model}`;
+}
+
+/**
+ * La config OpenCode d'un compagnon kindle (PUR). Moteur `openai-compatible` : déclare le fournisseur
+ * `kindle`, sans jamais la clé, seulement sa référence. Moteur `opencode` : AUCUN fournisseur déclaré, les
+ * identifiants restent ceux d'OpenCode (`opencode auth login`) ; on ne fixe que les modèles par rôle,
+ * les instructions, les permissions et les MCP.
+ */
 export function buildOpencodeConfig(cfg: EngineConfig, o: OpencodeConfigOptions = {}): Record<string, unknown> {
-  const models: Record<string, { name: string }> = {};
-  for (const role of ["fort", "rapide"] as const) {
-    const m = cfg.models[role];
-    if (m && !models[m]) models[m] = { name: m };
-  }
+  const native = cfg.kind === "opencode";
+  const permission = o.noTools
+    ? { edit: "deny", bash: "deny", webfetch: "deny" }
+    : o.allowAll
+      ? { edit: "allow", bash: "allow", webfetch: "allow" }
+      : {
+          edit: "allow",
+          bash: o.bashAllow?.length ? { "*": "ask", ...Object.fromEntries(o.bashAllow.map((p) => [p, "allow"])) } : "ask",
+          webfetch: "ask",
+        };
   const conf: Record<string, unknown> = {
     $schema: "https://opencode.ai/config.json",
     autoupdate: false,
     share: "disabled",
     instructions: o.instructions ?? ["CLAUDE.md"],
-    model: `${OPENCODE_PROVIDER}/${cfg.models.fort}`,
-    small_model: `${OPENCODE_PROVIDER}/${cfg.models.rapide}`,
-    provider: {
+    model: qualifiedModel(cfg, cfg.models.fort as string),
+    small_model: qualifiedModel(cfg, cfg.models.rapide as string),
+    permission,
+  };
+  if (!native) {
+    const models: Record<string, { name: string }> = {};
+    for (const role of ["fort", "rapide"] as const) {
+      const m = cfg.models[role];
+      if (m && !models[m]) models[m] = { name: m };
+    }
+    conf.provider = {
       [OPENCODE_PROVIDER]: {
         npm: "@ai-sdk/openai-compatible",
         name: "Kindle (compatible OpenAI)",
         options: { baseURL: cfg.baseUrl, apiKey: "{env:KINDLE_API_KEY}" },
         models,
       },
-    },
-    permission: o.allowAll
-      ? { edit: "allow", bash: "allow", webfetch: "allow" }
-      : {
-          edit: "allow",
-          bash: o.bashAllow?.length ? { "*": "ask", ...Object.fromEntries(o.bashAllow.map((p) => [p, "allow"])) } : "ask",
-          webfetch: "ask",
-        },
-  };
-  if (o.mcp && Object.keys(o.mcp).length) conf.mcp = o.mcp;
+    };
+  }
+  if (!o.noTools && o.mcp && Object.keys(o.mcp).length) conf.mcp = o.mcp;
   return conf;
 }
 
-/** Arguments de `opencode run` (PUR). */
-export function opencodeArgs(req: TurnRequest, model: string): string[] {
-  const args = ["run", "--format", "json", "-m", `${OPENCODE_PROVIDER}/${model}`];
+/** Arguments de `opencode run` (PUR). `qualified` : l'id déjà complet (`qualifiedModel`) ; sans lui, `kindle/<model>`. */
+export function opencodeArgs(req: TurnRequest, model: string, qualified?: string): string[] {
+  const args = ["run", "--format", "json", "-m", qualified ?? `${OPENCODE_PROVIDER}/${model}`];
   if (req.cwd) args.push("--dir", req.cwd);
   const prompt = req.systemPrompt ? `${req.systemPrompt}\n\n${req.prompt}` : req.prompt;
   args.push(prompt);
@@ -203,6 +221,12 @@ export interface OpencodeRunOptions extends OpencodeConfigOptions {
   env?: Record<string, string | undefined>;
 }
 
+/** Libellé du moteur dans `TurnResult.engine`. */
+export const engineLabel = (cfg: EngineConfig): string => (cfg.kind === "opencode" ? "opencode" : "openai-compatible/opencode");
+
+/** Un modèle OpenCode Zen gratuit (`opencode/…-free`) ne coûte rien : OpenCode en chiffre 0, qui ici est vrai. */
+export const isZenFree = (model: string): boolean => /^opencode\/.+-free$/.test(model);
+
 export function runOpencode(cfg: EngineConfig, req: TurnRequest, model: string, o: OpencodeRunOptions = {}): Promise<TurnResult> {
   const dir = mkdtempSync(join(tmpdir(), "kindle-opencode-"));
   const cfgPath = join(dir, "opencode.json");
@@ -211,15 +235,16 @@ export function runOpencode(cfg: EngineConfig, req: TurnRequest, model: string, 
     ...(o.env ?? process.env),
     OPENCODE_CONFIG: cfgPath,
     OPENCODE_DISABLE_AUTOUPDATE: "1",
-    KINDLE_API_KEY: cfg.apiKey ?? "",
   };
+  if (cfg.kind !== "opencode") env.KINDLE_API_KEY = cfg.apiKey ?? "";
   delete env.ANTHROPIC_API_KEY;
+  const label = engineLabel(cfg);
   const cleanup = () => rmSync(dir, { recursive: true, force: true });
   const timeoutMs = req.timeoutMs ?? 600_000;
   const fail = (error: string): TurnResult => ({
     ok: false,
     text: "",
-    engine: "openai-compatible/opencode",
+    engine: label,
     model,
     costUsd: null,
     usage: { input: null, output: null },
@@ -229,7 +254,7 @@ export function runOpencode(cfg: EngineConfig, req: TurnRequest, model: string, 
   return new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(cfg.opencodeBin, opencodeArgs(req, model), { cwd: req.cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+      child = spawn(cfg.opencodeBin, opencodeArgs(req, model, qualifiedModel(cfg, model)), { cwd: req.cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) {
       cleanup();
       return resolve(fail(`lancement de « ${cfg.opencodeBin} » impossible : ${(e as Error).message}`));
@@ -256,6 +281,8 @@ export function runOpencode(cfg: EngineConfig, req: TurnRequest, model: string, 
     );
     child.on("close", (code) => {
       const r = parseOpencodeEvents(out, model);
+      r.engine = label;
+      if (cfg.kind === "opencode" && r.costUsd === null && isZenFree(model)) r.costUsd = 0;
       if (!r.ok && code !== 0) r.error = `${r.error} (code ${code}) ${err.trim().slice(-300)}`.trim();
       finish(r);
     });

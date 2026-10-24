@@ -109,3 +109,84 @@ claude --model model-name
 Not tested in this repo (only the `openai-compatible` engine is). Keep `KINDLE_ENGINE=claude` then: the
 `claude` engine removes `ANTHROPIC_API_KEY` from its children's environment, but not
 `ANTHROPIC_BASE_URL` or `ANTHROPIC_AUTH_TOKEN`.
+
+## 8. OpenCode as the engine (its providers, its credentials)
+
+Sections 1 to 7 assume an API of your own (URL + key). Without one, or if you prefer the providers OpenCode
+manages itself (OpenCode Zen, a subscription, `opencode auth login`), the `opencode` engine leaves the
+provider entirely to OpenCode: kindle declares nothing, reads no key, and sends every turn (text-only
+included) through `opencode run`.
+
+```bash
+npm i -g opencode-ai
+opencode models                      # lists the "provider/model" ids
+```
+
+```bash
+# .env
+KINDLE_ENGINE=opencode
+MODELE_FORT=opencode/deepseek-v4.1-flash-free
+# MODELE_RAPIDE=opencode/glm-5.3-flash-free   # unset = MODELE_FORT
+```
+
+- **Roles.** `MODELE_FORT` and `MODELE_RAPIDE` are OpenCode ids in the `provider/model` format, as
+  `opencode models` prints them (an id without `/` is refused at startup). They become `model` and
+  `small_model` in the generated config, and `-m <id>` on `opencode run`.
+- **Free.** An `opencode/…-free` id is an OpenCode Zen model at no charge, "for a limited time" according to
+  the provider: the example above existed on 2026-10-23, check `opencode models`. Read what the provider does
+  with your prompts before sending it what your companion knows about you: this repo does not verify that.
+- **Tools and MCP.** Declare your MCP servers once in `.mcp.json` (Claude Code format); `mcpFromClaude`
+  translates them to the `mcp` section of the OpenCode config (`{command, args, env}` → `local`,
+  `{url, headers}` → `remote`). Tool turns (`kindle ask --outils`, or `tools: true`) get them; a text-only
+  turn has no tools and no MCP (edit, bash and web are denied).
+- **Permissions.** As in § 6: `acceptEdits` (default) = edits allowed, bash and web on "ask" (refused on
+  their own without a human); `KINDLE_CLAUDE_PERMISSION_MODE=bypassPermissions` = everything allowed.
+- **Cost and tokens.** `kindle ask` prints tokens and cost when OpenCode reports them. A free Zen model
+  shows `0.0000 $` (true); another model whose price OpenCode doesn't know stays "cost not priced", never an
+  invented 0. No dollar cap (`KINDLE_BUDGET_USD` is ignored, with a warning), quota `non-mesure`: nothing is
+  deferred.
+- **Session config.** `node harness/bin/kindle.ts opencode-config --write` writes `opencode.json`
+  (`CLAUDE.md` instructions, models, permissions, MCP, no provider and no key).
+
+**Smoke test:**
+
+```bash
+node harness/bin/kindle.ts doctor
+node harness/bin/kindle.ts ask --outils "List memoire/ and tell me how many files."
+```
+
+`doctor` checks OpenCode, that your two ids appear in `opencode models`, then plays a real turn. With no
+network or account, the contract is tested against a fake binary:
+`cd harness && node --test src/lib/engine.test.ts` (test "opencode (moteur) : runTurn contre un faux binaire").
+The "OpenCode réel" test in the same file does need the real binary (skipped otherwise).
+
+## 9. T3 Code: the interface, not an engine
+
+[T3 Code](https://github.com/pingdotgg/t3code) (repo `pingdotgg/t3code`) is an interface (desktop, web,
+mobile app) that drives agents already installed on your machine: Claude Code, Codex, OpenCode, Cursor…
+It does not replace kindle's engine: it opens your repo and runs the agent on it. Your companion lives
+there as long as the agent reads its files, which this repo prepares.
+
+1. **Install T3 Code**: `npx t3@latest` to try it, or your platform's package (see the project README),
+   then run `t3` (server + local web app).
+2. **Set up at least one agent** and sign in: `claude auth login`, or `opencode auth login` (or, for a
+   provider of your own, the `.env` from § 1, then `opencode-config --write` below).
+3. **Prepare the repo** (once): `node harness/bin/kindle.ts opencode-config --write` if you want OpenCode
+   (it writes `opencode.json`, which sets models, permissions, MCP and reads `CLAUDE.md`). Nothing to do for
+   Claude Code: `CLAUDE.md`, `.claude/settings.json` and `.mcp.json` are already there. `AGENTS.md` (at the
+   root) tells any other agent, Codex included, to read `CLAUDE.md` first.
+4. **Add the repo as a project** in T3 Code ("Add project": the repo path or the folder picker) and pick the
+   session's agent: OpenCode or Claude.
+5. **Open a thread** and say "hello": the first time, the agent runs `ONBOARDING.md` (the repo is blank,
+   this is its birth); afterwards it resumes from the journal and memory. Memory commits are its own, in
+   your repo.
+
+**Smoke test:** in T3 Code, ask "Read CLAUDE.md and tell me the first onboarding step": an answer that
+cites `ONBOARDING.md` proves the agent sees the repo's rules. From the command line,
+`opencode run "Read CLAUDE.md and name the first onboarding step"` inside the repo gives the same result
+without the UI.
+
+**NOT verified here:** T3 Code's graphical interface (no test was played inside it); what it does with
+`AGENTS.md`; its per-thread agent choice. Steps 1, 2 and 4 come from the project's documentation; 3 and 5 are
+what kindle controls. The § 6 limits still hold: Claude Code hooks and plugins don't run under OpenCode,
+even when opened from T3 Code.

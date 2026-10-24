@@ -26,6 +26,7 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import type { EngineConfig } from "./engine-config.ts";
 import { chatOpenAI } from "./engine-openai.ts";
+import { runTurn } from "./engine.ts";
 
 /** Modèle qui fait la classification — le plus rapide/économique de ta gamme. */
 export const ROUTER_MODEL = "claude-haiku-4-5";
@@ -384,6 +385,13 @@ export function classifyRoute(
       timeoutMs: opts.timeoutMs ?? 12000,
       fetchFn: opts.fetchFn,
     }).then(
+      (r) => (r.ok ? parseRouterDecision(r.text, allowed) : null),
+      () => null,
+    );
+  }
+  if (opts.engine && opts.engine.kind === "opencode") {
+    // OpenCode démarre en quelques secondes : on lui laisse au moins 30 s pour classer.
+    return runTurn(opts.engine, { prompt, role: "rapide", timeoutMs: Math.max(opts.timeoutMs ?? 0, 30_000) }).then(
       (r) => (r.ok ? parseRouterDecision(r.text, allowed) : null),
       () => null,
     );

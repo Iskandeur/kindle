@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { describeConfig, limitsOf, normalizeBaseUrl, readEngineConfig, type EngineConfig } from "./engine-config.ts";
 import { claudeArgs, parseClaudeOutput } from "./engine-claude.ts";
 import { chatOpenAI, listModels } from "./engine-openai.ts";
-import { buildOpencodeConfig, mcpFromClaude, opencodeArgs, parseOpencodeEvents } from "./engine-opencode.ts";
+import { buildOpencodeConfig, mcpFromClaude, opencodeArgs, parseOpencodeEvents, qualifiedModel } from "./engine-opencode.ts";
 import { resolveModel, runTurn } from "./engine.ts";
 import { contentText, startFakeOpenAI } from "./fake-openai-server.ts";
 
@@ -317,6 +317,82 @@ line({ type: "step_finish", part: { tokens: { input: 1, output: 1 }, cost: 0 } }
   assert.equal(seen.anthropic, null);
   assert.deepEqual(seen.mcp, { outil: { type: "local", command: ["node", "s.js"], enabled: true } });
   const missing = await runTurn(cfgOf({ ...THREE_LINES, KINDLE_OPENCODE_BIN: join(dir, "absent") }), { prompt: "x", tools: true, cwd: dir });
+  assert.equal(missing.ok, false);
+  assert.match(missing.error ?? "", /opencode-ai/);
+});
+
+// ————— Moteur `opencode` : OpenCode seul, ses fournisseurs, ses ids —————
+
+const ZEN = { KINDLE_ENGINE: "opencode", MODELE_FORT: "opencode/deepseek-v4.1-flash-free" };
+
+test("opencode (moteur) : config — ids fournisseur/modèle, rapide = fort par défaut, erreurs lisibles", () => {
+  const c = cfgOf(ZEN);
+  assert.equal(c.kind, "opencode");
+  assert.equal(c.baseUrl, null);
+  assert.deepEqual(c.models, { fort: "opencode/deepseek-v4.1-flash-free", rapide: "opencode/deepseek-v4.1-flash-free" });
+  assert.equal(cfgOf({ ...ZEN, MODELE_RAPIDE: "anthropic/claude-haiku-4-5" }).models.rapide, "anthropic/claude-haiku-4-5");
+  assert.match(readEngineConfig({ KINDLE_ENGINE: "opencode" }).errors.join(" "), /MODELE_FORT manque/);
+  assert.match(readEngineConfig({ KINDLE_ENGINE: "opencode", MODELE_FORT: "deepseek" }).errors.join(" "), /fournisseur\/modèle/);
+  assert.match(readEngineConfig({ ...ZEN, KINDLE_BASE_URL: "https://x.example/v1" }).warnings.join(" "), /KINDLE_BASE_URL est ignoré/);
+  assert.equal(limitsOf(c).quotaCanThrottle, false);
+});
+
+test("opencode (moteur) : la config générée ne déclare aucun fournisseur ni clé ; texte seul = tout refusé", () => {
+  const c = cfgOf({ ...ZEN, MODELE_RAPIDE: "opencode/glm-5.3-flash-free" });
+  const mcp = mcpFromClaude({ mcpServers: { a: { command: "node", args: ["a.js"] } } });
+  const conf = buildOpencodeConfig(c, { mcp });
+  assert.equal("provider" in conf, false);
+  assert.equal(conf.model, "opencode/deepseek-v4.1-flash-free");
+  assert.equal(conf.small_model, "opencode/glm-5.3-flash-free");
+  assert.deepEqual(conf.permission, { edit: "allow", bash: "ask", webfetch: "ask" });
+  assert.deepEqual(Object.keys(conf.mcp as object), ["a"]);
+  const bare = buildOpencodeConfig(c, { mcp, noTools: true });
+  assert.deepEqual(bare.permission, { edit: "deny", bash: "deny", webfetch: "deny" });
+  assert.equal("mcp" in bare, false);
+  assert.deepEqual(opencodeArgs({ prompt: "p", cwd: "/d" }, "opencode/m", qualifiedModel(c, "opencode/m")), ["run", "--format", "json", "-m", "opencode/m", "--dir", "/d", "p"]);
+});
+
+test("opencode (moteur) : runTurn contre un faux binaire — id natif, MCP traduit, jetons, coût 0 pour un modèle Zen gratuit", async () => {
+  const bin = fakeBin(
+    "opencode",
+    `const fs = require("node:fs");
+const conf = JSON.parse(fs.readFileSync(process.env.OPENCODE_CONFIG, "utf8"));
+const line = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
+line({ type: "step_start", part: {} });
+line({ type: "tool_use", part: { tool: "bash", state: { status: "completed" } } });
+line({ type: "step_finish", part: { tokens: { input: 5, output: 2 }, cost: 0 } });
+line({ type: "step_start", part: {} });
+line({ type: "text", part: { text: JSON.stringify({ args: process.argv.slice(2), provider: conf.provider ?? null, perm: conf.permission, mcp: Object.keys(conf.mcp ?? {}), keyEnv: process.env.KINDLE_API_KEY ?? null, anthropic: process.env.ANTHROPIC_API_KEY ?? null }) } });
+line({ type: "step_finish", part: { tokens: { input: 7, output: 3 }, cost: 0 } });`,
+  );
+  const dir = mkdtempSync(join(tmpdir(), "kindle-oc-native-"));
+  const mcpFile = join(dir, ".mcp.json");
+  writeFileSync(mcpFile, JSON.stringify({ mcpServers: { outil: { command: "node", args: ["s.js"] } } }));
+  const c = cfgOf({ ...ZEN, KINDLE_OPENCODE_BIN: bin });
+  const env = { ...process.env, ANTHROPIC_API_KEY: "sk-ne-doit-pas-passer" };
+  const r = await runTurn(c, { prompt: "fais", tools: true, cwd: dir, mcpConfig: mcpFile }, { env });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(r.engine, "opencode");
+  assert.equal(r.model, "opencode/deepseek-v4.1-flash-free");
+  assert.equal(r.costUsd, 0);
+  assert.deepEqual(r.usage, { input: 12, output: 5 });
+  assert.deepEqual(r.toolCalls, ["bash"]);
+  const seen = JSON.parse(r.text);
+  assert.deepEqual(seen.args, ["run", "--format", "json", "-m", "opencode/deepseek-v4.1-flash-free", "--dir", dir, "fais"]);
+  assert.equal(seen.provider, null);
+  assert.deepEqual(seen.mcp, ["outil"]);
+  assert.equal(seen.keyEnv, null);
+  assert.equal(seen.anthropic, null);
+  // Un modèle payant : coût inconnu (null), jamais un 0 inventé.
+  const paid = await runTurn(cfgOf({ KINDLE_ENGINE: "opencode", MODELE_FORT: "anthropic/claude-haiku-4-5", KINDLE_OPENCODE_BIN: bin }), { prompt: "x", tools: true, cwd: dir }, { env });
+  assert.equal(paid.costUsd, null);
+  // Texte seul : tout refusé, aucun MCP.
+  const text = await runTurn(c, { prompt: "dis ok", mcpConfig: mcpFile }, { env });
+  assert.equal(text.ok, true, text.error);
+  const t = JSON.parse(text.text);
+  assert.deepEqual(t.perm, { edit: "deny", bash: "deny", webfetch: "deny" });
+  assert.deepEqual(t.mcp, []);
+  const missing = await runTurn(cfgOf({ ...ZEN, KINDLE_OPENCODE_BIN: join(dir, "absent") }), { prompt: "x" });
   assert.equal(missing.ok, false);
   assert.match(missing.error ?? "", /opencode-ai/);
 });

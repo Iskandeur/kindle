@@ -89,6 +89,13 @@ the limits (no Claude Code hooks or plugins) are listed in
 [`harness/docs/bring-your-own-api.md`](harness/docs/bring-your-own-api.md)
 ([français](harness/docs/brancher-ton-api.md)).
 
+**OpenCode as the engine, and T3 Code as the interface.** No endpoint of your own? Set
+`KINDLE_ENGINE=opencode` and `MODELE_FORT=<provider/model>` (for example a free
+[OpenCode Zen](https://opencode.ai/zen) model): OpenCode keeps its own providers and credentials.
+[T3 Code](https://github.com/pingdotgg/t3code) is a desktop/web UI that drives Claude Code, Codex or
+OpenCode: open this repo as a project and your companion runs in it, with its memory and rules.
+Both are covered, with a smoke test each, in the same guide.
+
 ## What is in the repo
 
 | Item | Role |
