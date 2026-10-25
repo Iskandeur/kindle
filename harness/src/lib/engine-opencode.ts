@@ -19,9 +19,10 @@
  * comportement de `claude -p` en `acceptEdits`. Lecture et recherche de fichiers restent permises dans les
  * deux moteurs.
  *
- * L'enfant reçoit l'environnement du parent MOINS `ANTHROPIC_API_KEY` (comme le moteur `claude`). Le reste
- * passe : un modèle qui a bash lit donc les autres secrets de ton environnement. Lance le daemon avec un
- * environnement réduit (`env` de `runTurn`) si tu ne le veux pas.
+ * L'enfant ne reçoit PAS l'environnement du parent : une liste blanche (`childEnv`) : PATH, HOME, LANG/LC_*,
+ * XDG_*, proxys et certificats, plus `KINDLE_API_KEY` et `OPENCODE_CONFIG` posés par kindle. Un modèle qui a
+ * bash ne lit donc pas les autres secrets de ton environnement. Pour élargir : `KINDLE_OPENCODE_ENV_ALLOW`
+ * (noms séparés par des virgules, ex. `OPENAI_API_KEY,GITHUB_TOKEN`) dans l'environnement du daemon.
  */
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -216,6 +217,23 @@ export function parseOpencodeEvents(stdout: string, model: string): TurnResult {
   };
 }
 
+const ENV_ALLOW_EXACT = new Set([
+  "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", "TMPDIR", "TZ", "PWD",
+  "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS",
+]);
+
+/** L'environnement de l'enfant OpenCode : liste blanche (PUR). `KINDLE_OPENCODE_ENV_ALLOW` l'élargit par noms. */
+export function childEnv(base: Record<string, string | undefined>): Record<string, string | undefined> {
+  const extra = new Set((base.KINDLE_OPENCODE_ENV_ALLOW ?? "").split(",").map((n) => n.trim()).filter(Boolean));
+  const out: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(base)) {
+    if (v === undefined) continue;
+    const upper = k.toUpperCase();
+    if (ENV_ALLOW_EXACT.has(upper) || k.startsWith("LC_") || k.startsWith("XDG_") || extra.has(k)) out[k] = v;
+  }
+  return out;
+}
+
 export interface OpencodeRunOptions extends OpencodeConfigOptions {
   /** Environnement de base de l'enfant (défaut : `process.env`). */
   env?: Record<string, string | undefined>;
@@ -232,7 +250,7 @@ export function runOpencode(cfg: EngineConfig, req: TurnRequest, model: string, 
   const cfgPath = join(dir, "opencode.json");
   writeFileSync(cfgPath, JSON.stringify(buildOpencodeConfig(cfg, o), null, 2));
   const env: Record<string, string | undefined> = {
-    ...(o.env ?? process.env),
+    ...childEnv(o.env ?? process.env),
     OPENCODE_CONFIG: cfgPath,
     OPENCODE_DISABLE_AUTOUPDATE: "1",
   };

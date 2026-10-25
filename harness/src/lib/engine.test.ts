@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { describeConfig, limitsOf, normalizeBaseUrl, readEngineConfig, type EngineConfig } from "./engine-config.ts";
 import { claudeArgs, parseClaudeOutput } from "./engine-claude.ts";
 import { chatOpenAI, listModels } from "./engine-openai.ts";
-import { buildOpencodeConfig, mcpFromClaude, opencodeArgs, parseOpencodeEvents, qualifiedModel } from "./engine-opencode.ts";
+import { buildOpencodeConfig, childEnv, mcpFromClaude, opencodeArgs, parseOpencodeEvents, qualifiedModel } from "./engine-opencode.ts";
 import { resolveModel, runTurn } from "./engine.ts";
 import { contentText, startFakeOpenAI } from "./fake-openai-server.ts";
 
@@ -441,4 +441,15 @@ test("OpenCode réel : bash puis MCP, hors réseau (sauté si OpenCode n'est pas
   } finally {
     await srv.close();
   }
+});
+
+test("opencode : l'environnement de l'enfant est une liste blanche, élargie par KINDLE_OPENCODE_ENV_ALLOW", () => {
+  const base = {
+    PATH: "/usr/bin", HOME: "/home/x", LANG: "fr_FR.UTF-8", LC_ALL: "C", XDG_CONFIG_HOME: "/c", HTTPS_PROXY: "http://p",
+    AWS_SECRET_ACCESS_KEY: "secret", GITHUB_TOKEN: "ghp_x", ANTHROPIC_API_KEY: "sk-a",
+  };
+  assert.deepEqual(Object.keys(childEnv(base)).sort(), ["HOME", "HTTPS_PROXY", "LANG", "LC_ALL", "PATH", "XDG_CONFIG_HOME"]);
+  const e2 = childEnv({ ...base, KINDLE_OPENCODE_ENV_ALLOW: "GITHUB_TOKEN, OPENAI_API_KEY" });
+  assert.equal(e2.GITHUB_TOKEN, "ghp_x");
+  assert.equal(e2.AWS_SECRET_ACCESS_KEY, undefined);
 });

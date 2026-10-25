@@ -63,6 +63,25 @@ test("cliquet posé sous la gamme Claude : ignoré après passage à un fourniss
   assert.equal(r.opts.effort, "low");
 });
 
+test("cliquet sonnet abandonné quand la gamme claude passe à deux modèles (MODELE_RAPIDE seul)", async () => {
+  const store = memStore();
+  store.setSetting("router_ratchet", JSON.stringify({ model: "claude-sonnet-5", effort: "high", at: Date.now() }));
+  const c = cfg({ MODELE_RAPIDE: "claude-haiku-4-5" });
+  assert.deepEqual(routeModelsFor(c).map((m) => m.id), ["claude-haiku-4-5", "claude-opus-4-1"]);
+  const r = await routeEngineOpts(store, { model: "claude-opus-4-1" }, "ok", { engine: c, classify: async () => ({ model: "claude-haiku-4-5", effort: "low" }) });
+  assert.equal(r.opts.model, "claude-haiku-4-5");
+  assert.equal(r.opts.effort, "low");
+});
+
+test("cliquet : un nom hérité d'Object.prototype n'est pas un modèle de la gamme", async () => {
+  const store = memStore();
+  store.setSetting("router_ratchet", JSON.stringify({ model: "toString", effort: "high", at: Date.now() }));
+  const c = cfg({ KINDLE_BASE_URL: "http://127.0.0.1:1/v1", MODELE_FORT: "grand", MODELE_RAPIDE: "petit" });
+  const r = await routeEngineOpts(store, { model: "grand" }, "ok", { engine: c, classify: async () => ({ model: "petit", effort: "low" }) });
+  assert.equal(r.opts.model, "petit");
+  assert.equal(r.opts.effort, "low");
+});
+
 test("classifyRoute : fournisseur en panne = repli (null), jamais d'exception", async () => {
   const c = cfg({ KINDLE_BASE_URL: "http://127.0.0.1:9/v1", MODELE_FORT: "grand" });
   assert.equal(await classifyRoute("x", { engine: c, timeoutMs: 2000 }), null);
