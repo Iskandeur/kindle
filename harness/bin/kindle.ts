@@ -56,6 +56,16 @@ function mcpOfRepo() {
   return mcpFromClaude(JSON.parse(readFileSync(f, "utf8")));
 }
 
+/** Un garde-fou en PreToolUse (comme wa-guard) est déclaré : sous OpenCode il est inactif, ce qui n'est plus un simple avertissement. */
+function hasPreToolUseHook(settingsPath: string): boolean {
+  try {
+    const hooks = (JSON.parse(readFileSync(settingsPath, "utf8")) as { hooks?: Record<string, unknown> }).hooks;
+    return !!hooks && Object.hasOwn(hooks, "PreToolUse");
+  } catch {
+    return /"PreToolUse"\s*:/.test(readFileSync(settingsPath, "utf8"));
+  }
+}
+
 async function doctor(cfg: EngineConfig): Promise<boolean> {
   let good = true;
   for (const l of describeConfig(cfg)) note(l);
@@ -88,6 +98,7 @@ async function doctor(cfg: EngineConfig): Promise<boolean> {
     const settings = join(repo, ".claude", "settings.json");
     if (existsSync(settings) && /"hooks"\s*:/.test(readFileSync(settings, "utf8"))) {
       ko("`.claude/settings.json` déclare des hooks : ils ne tournent PAS sous OpenCode. Voir harness/docs/brancher-ton-api.md § 6.");
+      if (hasPreToolUseHook(settings)) good = false;
     }
   } else {
     const list = await listModels(cfg.baseUrl as string, cfg.apiKey);
@@ -107,6 +118,7 @@ async function doctor(cfg: EngineConfig): Promise<boolean> {
     const settings = join(repo, ".claude", "settings.json");
     if (existsSync(settings) && /"hooks"\s*:/.test(readFileSync(settings, "utf8"))) {
       ko("`.claude/settings.json` déclare des hooks : ils ne tournent PAS sous OpenCode (un garde-fou en PreToolUse, comme wa-guard, est inactif). Voir harness/docs/brancher-ton-api.md § 6.");
+      if (hasPreToolUseHook(settings)) good = false;
     }
     const v = binVersion(cfg.opencodeBin);
     if (v) ok(`OpenCode présent (${v}) : les tours avec outils marcheront`);

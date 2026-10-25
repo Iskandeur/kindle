@@ -489,7 +489,7 @@ export async function routeEngineOpts(
   const stored = readRatchet(store, scopeId, now, deps.ratchetWindowMs ?? ROUTER_RATCHET_WINDOW_MS_DEFAULT);
   // Un cliquet posé sous une AUTRE gamme (changement de moteur) ne sert pas de plancher : son modèle
   // n'existe peut-être pas chez ce fournisseur.
-  const ratchet = deps.engine && stored && !(stored.model in ranks) ? undefined : stored;
+  const ratchet = deps.engine && stored && !Object.hasOwn(ranks, stored.model) ? undefined : stored;
   const effectiveFloor = floor ?? ratchet;
   const applyFloor = (o: EngineOptions): EngineOptions =>
     !effectiveFloor
