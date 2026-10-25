@@ -148,13 +148,24 @@ export function patchJsonFile(target: string, patch: PatchSpec, o: PatchFileOpti
   if (!auth.ok) return { status: "refused", reason: auth.reason ?? "autorisation refusée" };
   if (auth.consume && !auth.consume()) return { status: "refused", reason: "approbation déjà consommée par un autre processus." };
 
-  const backup = `${target}.bak-${(o.now ?? Date.now)()}`;
-  copyFileSync(target, backup);
-  writeFileSync(target, after);
+  const real = realpathSync(target);
+  const backup = `${real}.bak-${(o.now ?? Date.now)()}`;
   try {
-    JSON.parse(readFileSync(target, "utf8"));
+    copyFileSync(real, backup);
+    writeFileSync(real, after);
   } catch (e) {
-    copyFileSync(backup, target);
+    auth.release?.();
+    try {
+      if (existsSync(backup)) copyFileSync(backup, real);
+    } catch {
+      /* restauration impossible aussi : la raison renvoyée dit de vérifier le fichier */
+    }
+    return { status: "error", reason: `écriture impossible (${(e as Error).message}) ; vérifie ${real}` };
+  }
+  try {
+    JSON.parse(readFileSync(real, "utf8"));
+  } catch (e) {
+    copyFileSync(backup, real);
     auth.release?.();
     return { status: "restored", reason: `JSON invalide après écriture : ${(e as Error).message}`, backup };
   }

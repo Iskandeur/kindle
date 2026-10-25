@@ -12,12 +12,12 @@
  *   1. la demande existe et a été créée LIÉE à un acte (une empreinte posée à la création) ;
  *   2. l'acte est exactement celui que l'humain a vu : mêmes destination + texte, mêmes fichier cible +
  *      patch. Un mot changé après son accord = refus ;
- *   3. le système a enregistré SA décision, et c'est un pouce levé (teintes de peau comprises) ou un
+ *   3. elle n'a pas été annulée / périmée / remplacée ;
+ *   4. le système a enregistré SA décision, et c'est un pouce levé (teintes de peau comprises) ou un
  *      « ok » tapé. Tout autre emoji est refusé, y compris ceux qu'une demande aurait proposés en option :
  *      le verrou ne lit pas les conventions en prose ;
- *   4. elle n'a pas déjà servi (une approbation = UN acte) ;
- *   5. sa décision a moins de 24 h (`APPROVAL_GATE_TTL_MS`) ;
- *   6. elle n'a pas été annulée / périmée / remplacée.
+ *   5. elle n'a pas déjà servi (une approbation = UN acte) ;
+ *   6. sa décision a moins de 24 h (`APPROVAL_GATE_TTL_MS`) et n'est pas datée du futur.
  *
  * CE QU'IL NE FAIT PAS. C'est une serrure de PROCÉDURE, pas un coffre : si l'agent peut lire la clé de
  * l'API d'envoi, un script écrit à la main qui appelle l'API directement ne passe pas par ici. Le verrou
@@ -133,6 +133,9 @@ export function checkApprovalGate(
     };
   }
   const age = now - Number(row.verdict_at ?? 0);
+  if (row.verdict_at && age < 0) {
+    return { ok: false, reason: `la décision sur ${n} est datée dans le futur : horloge ou donnée incohérente, redemande.` };
+  }
   if (!row.verdict_at || age > ttlMs) {
     return {
       ok: false,
