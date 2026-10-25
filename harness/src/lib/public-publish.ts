@@ -14,6 +14,9 @@
  * passage d'un dépôt en public reste à `github-visibility.ts`. L'autorisation est la même : une demande
  * d'approbation liée à l'acte exact, l'accord de l'humain, puis la même commande, une fois.
  *
+ * La détection porte sur la FORME des commandes (des mots, pas une sémantique de shell) : elle n'est pas
+ * étanche. Un `eval`, une variable ou un script qui appelle l'API directement ne sont pas vus.
+ *
  * À brancher sur chaque chemin de sortie de ton agent : ce module lit les commandes Bash, donc tes outils
  * MCP de déploiement demandent leur propre entrée de hook. Faux positifs acceptés (une demande de plus) ;
  * le silence, non.

@@ -117,9 +117,15 @@ const RULES: Rule[] = [
   {
     id: "private-filesystem-path",
     pattern: /(?:\/home\/|\/Users\/|[A-Za-z]:\\Users\\)[^\s`"']+/g,
-    safe: (candidate, allow) => /(?:<user>|<name>|YOUR_|example|user)\b/i.test(candidate) || isExplicitlyAllowed(candidate, allow),
+    safe: (candidate, allow) => isPlaceholderHome(candidate) || isExplicitlyAllowed(candidate, allow),
   },
 ];
+
+/** Le segment de l'utilisateur (le premier après `/home/`, `/Users/` ou `X:\Users\`) est un gabarit. */
+function isPlaceholderHome(candidate: string): boolean {
+  const m = /^(?:\/home\/|\/Users\/|[A-Za-z]:\\Users\\)([^/\\]+)/.exec(candidate);
+  return !!m && /^(?:<user>|<name>|YOUR_[^/\\]*|example|user)$/i.test(m[1]);
+}
 
 const EXAMPLE_EMAIL_DOMAINS = new Set(["example.com", "example.org", "example.net", "localhost", "test.invalid"]);
 

@@ -61,6 +61,8 @@ const flagValue = (ws: string[], flag: string): string | null => {
   for (let i = 0; i < ws.length; i++) {
     if (ws[i] === flag) return ws[i + 1] ?? null;
     if (ws[i].startsWith(`${flag}=`)) return ws[i].slice(flag.length + 1);
+    // Forme collée d'un drapeau court : `-XPOST`.
+    if (/^-[A-Za-z]$/.test(flag) && ws[i].startsWith(flag) && ws[i].length > 2) return ws[i].slice(2);
   }
   return null;
 };
@@ -103,7 +105,7 @@ function httpAct(ws: string[]): PublicGithubAct | null {
   if (PUBLIC_FIELD.test(text)) return { kind: "api-public", why: "appel HTTP à api.github.com avec private=false / visibility=public" };
   const url = ws.find((w) => /api\.github\.com/.test(w)) ?? "";
   const path = url.replace(/^.*api\.github\.com\/?/, "");
-  const writes = /\s(-X|--request)\s*(POST|PATCH|PUT)\b/i.test(` ${text}`) || hasFlag(ws, "-d", "--data", "--data-raw", "--json");
+  const writes = /\s(-X|--request)(\s*|=)(POST|PATCH|PUT)\b/i.test(` ${text}`) || hasFlag(ws, "-d", "--data", "--data-raw", "--json");
   if (writes && CREATE_ENDPOINT.test(path) && !PRIVATE_TRUE.test(text)) return { kind: "api-public", why: `appel HTTP de création sur api.github.com/${path}` };
   return null;
 }
