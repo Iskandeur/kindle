@@ -25,6 +25,11 @@ function entierPositif(v: string | undefined, defaut: number): number {
   return v !== undefined && v.trim() !== "" && Number.isFinite(n) && n > 0 ? n : defaut;
 }
 
+/** `MEM_GARDE=off` coupe la garde (jamais de suspension). */
+export function gardeMemoireActive(env: Record<string, string | undefined> = process.env): boolean {
+  return (env.MEM_GARDE ?? "").trim().toLowerCase() !== "off";
+}
+
 /** Les seuils, depuis l'env ; une valeur absente ou absurde retombe sur le défaut. Reprise ≥ basse, toujours. */
 export function seuilsMemoireDepuisEnv(env: Record<string, string | undefined> = process.env): SeuilsMemoire {
   const d = SEUILS_MEMOIRE_DEFAUT;
@@ -84,13 +89,16 @@ export class GardeMemoire {
   private readonly lire: () => number | null;
   private readonly alerte: (texte: string) => void;
   private readonly seuils: SeuilsMemoire;
-  constructor(o: { lire?: () => number | null; alerte: (texte: string) => void; seuils?: SeuilsMemoire }) {
+  private readonly actif: boolean;
+  constructor(o: { lire?: () => number | null; alerte: (texte: string) => void; seuils?: SeuilsMemoire; env?: Record<string, string | undefined> }) {
     this.lire = o.lire ?? lireMemDisponibleMo;
     this.alerte = o.alerte;
-    this.seuils = o.seuils ?? seuilsMemoireDepuisEnv();
+    this.seuils = o.seuils ?? seuilsMemoireDepuisEnv(o.env);
+    this.actif = gardeMemoireActive(o.env);
   }
-  /** Une observation ; rend true si les réclamations de jobs sont suspendues. Ne lève jamais. */
+  /** Une observation ; rend true si les réclamations de jobs sont suspendues. Ne lève jamais. `MEM_GARDE=off` : toujours false. */
   observer(now: number, enVol: number): boolean {
+    if (!this.actif) return false;
     try {
       const dispo = this.lire();
       const d = observerMemoire(this.etat, dispo, now, this.seuils);

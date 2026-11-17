@@ -111,7 +111,6 @@ test("passerEchantillon : écrit une ligne ET le battement ; un battement qui l�
     assert.equal(e2?.ts, 6000);
     assert.equal(readFileSync(f, "utf8").trim().split("\n").length, 2);
     // lecture qui lève → null, jamais d'exception
-    writeFileSync(join(dir, "x"), "");
     assert.equal(passerEchantillon({ chemin: f, lire: () => { throw new Error("proc illisible"); }, now: () => 7000 }), null);
   } finally {
     rmTestTmpDir(dir);

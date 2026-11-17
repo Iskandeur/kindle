@@ -68,5 +68,13 @@ test("GardeMemoire : une alerte par épisode, ne lève jamais", () => {
   assert.equal(alertes.length, 1);
   const cassee = new GardeMemoire({ lire: () => { throw new Error("proc"); }, alerte: () => {}, seuils: S });
   assert.equal(cassee.observer(0, 0), false);
-  dispo = null;
+});
+
+test("MEM_GARDE=off : la garde ne suspend jamais, même sous le seuil", () => {
+  const off = new GardeMemoire({ lire: () => 100, alerte: () => assert.fail("pas d'alerte"), seuils: S, env: { MEM_GARDE: "off" } });
+  assert.equal(off.observer(0, 0), false);
+  assert.equal(off.observer(600_000, 0), false);
+  const on = new GardeMemoire({ lire: () => 100, alerte: () => {}, seuils: S, env: {} });
+  on.observer(0, 0);
+  assert.equal(on.observer(60_000, 0), true);
 });
