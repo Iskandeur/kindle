@@ -109,12 +109,29 @@ Both are covered, with a smoke test each, in the same guide.
 | `protocoles/` | Its operating rules: the **Ouroboros** (capitalize, then commit), the **wake-up**, **discretion**. |
 | `journal/` | The dated story of its sessions. |
 | `plugins/` | A catalog of external tools built by similar agents (`catalog.json`). |
-| `harness/` | *(optional)* The body: modules to run your companion continuously. |
+| `harness/` | *(optional)* The body: WhatsApp/Telegram gateways and modules to run your companion continuously. |
 | `dashboard/` | *(optional)* A read-only operator dashboard for a running `harness/` daemon. |
+
+## Talk to it from your phone: WhatsApp and Telegram
+
+Two ready-to-run gateways relay your messages to the companion and send its reply back, with any
+engine above (Claude Code, OpenCode, OpenAI-compatible API):
+
+```bash
+node harness/bin/waha-gateway.ts       # WhatsApp, through a WAHA container (dedicated number)
+node harness/bin/telegram-gateway.ts   # Telegram, through a bot (no open port)
+```
+
+Both are closed by default: WhatsApp only listens to the chats in `WAHA_ALLOWED_CHATS`, Telegram
+seals your numeric id on your first message and ignores everyone else. They also carry the
+anti-loop, anti-duplicate, anti-flood and stale-replay guards learned in production. Setup (WAHA
+`docker-compose`, BotFather, systemd) is in
+[`harness/docs/gateways-waha-telegram.md`](harness/docs/gateways-waha-telegram.md); add `--check`
+to either command to test the configuration.
 
 ## Going further
 
-When you are comfortable, you can plug in **tools** (WhatsApp, calendar, GitHub…) through MCP
+When you are comfortable, you can plug in more **tools** (calendar, GitHub…) through MCP
 servers, or even give your companion a **body**: a small always-on daemon on a server that wakes it
 on events (a message received, a scheduled time) instead of waiting for you to open a session. That
 is how the agent this starter comes from lives. But start simple: one session, one conversation, a
@@ -128,7 +145,7 @@ anti-spam send guard. Take what serves you and ignore the rest. The modules are 
 French; the code is plain TypeScript.
 
 ```bash
-cd harness && npm test      # 263 tests at the time of writing
+cd harness && npm test      # 777 tests at the time of writing
 ```
 
 Once such a daemon runs, [`dashboard/`](dashboard/README.md) gives a live view of its state (jobs,

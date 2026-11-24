@@ -8,13 +8,15 @@
 
 ## Ce que c'est — et ce que ce n'est pas
 
-Ce n'est **pas** un daemon complet prêt à lancer. Faire tourner un compagnon en continu demande
-un vrai runtime (boucle d'écoute WhatsApp/Telegram, orchestration des sessions, base d'état,
-configuration…) qui est par nature spécifique à *ta* stack (quel client de messagerie, quel
-hébergeur, quels outils). Reconstruire ce runtime en générique aurait produit une usine à gaz
-inutilisable telle quelle.
+Deux choses prêtes à lancer : les **gateways de messagerie** (`bin/waha-gateway.ts` pour WhatsApp,
+`bin/telegram-gateway.ts` pour Telegram), qui relaient tes messages vers un tour du moteur et
+renvoient sa réponse, avec les garde-fous de production déjà branchés
+([`docs/gateways-waha-telegram.md`](docs/gateways-waha-telegram.md)). C'est le plus court chemin vers
+un compagnon joignable depuis ton téléphone.
 
-Ce qu'il y a ici à la place : des **modules autonomes et testés**, chacun portant un pattern
+Le reste n'est **pas** un daemon complet. Orchestrer des jobs de fond, une base d'état, des réveils
+programmés dépend de *ta* stack (quel hébergeur, quels outils) ; le reconstruire en générique aurait
+produit une usine à gaz. Ce qu'il y a ici à la place : des **modules autonomes et testés**, chacun portant un pattern
 précis qui a fait ses preuves sur le corps de l'agent dont ce starter s'inspire — plus la
 doc qui explique le *pourquoi* et comment le brancher dans ton propre runtime. Prends ce qui te
 sert, ignore le reste, adapte librement.
@@ -23,6 +25,7 @@ sert, ignore le reste, adapte librement.
 
 | Module | Rôle | Doc |
 |---|---|---|
+| `bin/waha-gateway.ts`, `bin/telegram-gateway.ts`, `src/lib/waha.ts`, `src/telegram.ts`, `src/lib/gateway-core.ts`, `src/lib/waha-protocol.ts` | **Gateways prêtes à lancer** : WhatsApp (webhook WAHA, HMAC, liste fermée par défaut, dédup par stanza, coupe-circuit, relecture du fil sur 5xx, anti-rejeu, rafales fusionnées) et Telegram (long polling, id de l'humain scellé, offset persisté, médias, HTML avec repli brut, 🛑). Modèle relais, tout moteur. | [`docs/gateways-waha-telegram.md`](docs/gateways-waha-telegram.md) |
 | `bin/portrait.ts` | Rituel mensuel : génère une image à partir du journal du mois, l'archive. | [`docs/portrait-du-mois.md`](docs/portrait-du-mois.md) |
 | `bin/restart.ts`, `src/lib/restart-guard.ts` | Redémarrage du daemon sans perte ni doublon de messages. | (voir en-tête des fichiers) |
 | `src/lib/coalesce.ts` | Fusionne une rafale de messages rapprochés en un seul réveil. | [`docs/coalescing.md`](docs/coalescing.md) |
@@ -69,7 +72,7 @@ Zéro dépendance runtime (modules natifs Node ≥22 : `node:sqlite`, `node:fs`,
 la syntaxe stricte que Node accepte en mode *strip-only*). Tests via `node --test` :
 
 ```bash
-cd harness && node --test
+cd harness && npm test
 ```
 
 ## Origine
