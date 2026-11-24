@@ -9,8 +9,7 @@
 ## Ce que c'est — et ce que ce n'est pas
 
 Ce n'est **pas** un daemon complet prêt à lancer. Faire tourner un compagnon en continu demande
-un vrai runtime (boucle d'écoute WhatsApp/Telegram, orchestration des sessions, base d'état,
-configuration…) qui est par nature spécifique à *ta* stack (quel client de messagerie, quel
+un vrai runtime (orchestration des sessions, base d'état, configuration…) qui est par nature spécifique à *ta* stack (quel client de messagerie, quel
 hébergeur, quels outils). Reconstruire ce runtime en générique aurait produit une usine à gaz
 inutilisable telle quelle.
 
@@ -38,6 +37,7 @@ sert, ignore le reste, adapte librement.
 | `src/lib/nice.ts` | Lancer les jobs de fond en priorité CPU basse (`nice -n` avant l'`exec`) pour que la conversation garde toujours le processeur. | (voir en-tête du fichier) |
 | `src/lib/quiet-hours.ts` | Heures calmes : concurrence des jobs de fond ramenée à 1 pendant les heures d'éveil de l'humain (quota partagé), plage lue en heure locale par zone IANA, heure d'été comprise, jamais un offset figé. | (voir en-tête du fichier) |
 | `src/lib/claude-quota.ts`, `quota-policy.ts`, `job-landed.ts`, `final-question.ts`, `job-stall.ts`, `job-eta.ts`, `job-wait.ts`, `load-gate.ts`, `conv-turn-guard.ts`, `reload-drain.ts`, `outage-recovery.ts`, `child-env.ts`, `docker-env-guard.ts`, `engine-timeline.ts`, `succession.ts` | Jobs de fond et quota partagé : rythme du quota 5 h/hebdo et politique (différer, modèle plus léger, effort plafonné) ; un job « done » vérifié atterri, un job qui finit sur une question signalé ; tour de conversation long coupé et repris en job ; rechargement par drainage ; reprise après panne d'auth ; env des sous-processus en liste blanche. | [`docs/jobs-de-fond-et-quotas.md`](docs/jobs-de-fond-et-quotas.md) |
+| `bin/gateway.ts`, `src/gateway.ts`, `src/lib/waha.ts`, `telegram.ts`, `gateway-core.ts` | **Les messageries, prêtes à lancer** : WhatsApp via WAHA (webhook signé HMAC) et un bot Telegram (long polling, aucun port à ouvrir) ; liste blanche fermée par défaut, un tour à la fois par fil, anti-rejeu, réponse « SILENCE » possible ; `gateway.ts check` sonde les deux sans rien envoyer. | [`docs/gateways-whatsapp-telegram.md`](docs/gateways-whatsapp-telegram.md) |
 | `src/lib/waha-stale-replay.ts` | Anti-rejeu webhook : ne pas répondre à un vieux message rejoué (reconnexion/resync) comme s'il était neuf. | [`docs/waha-stale-replay.md`](docs/waha-stale-replay.md) |
 | `src/lib/engine-failover.ts` | Bascule automatique entre deux moteurs LLM sur quota, auth morte ou solde prépayé vide (jamais sur un aléa réseau), retour au préféré à l'heure annoncée, anti ping-pong ; un épinglage humain ne cède que devant une panne qui ne se lèvera pas seule. | [`docs/bascule-de-moteur.md`](docs/bascule-de-moteur.md) |
 | `src/lib/send-probe.ts` | Anti-doublon d'envoi : sur un 5xx du gateway, relire le fil avant de déclarer l'échec (le message est parfois déjà livré) ; un 4xx lève sans sonder. | [`docs/sonder-avant-echec-envoi.md`](docs/sonder-avant-echec-envoi.md) |

@@ -120,6 +120,12 @@ on events (a message received, a scheduled time) instead of waiting for you to o
 is how the agent this starter comes from lives. But start simple: one session, one conversation, a
 memory that grows.
 
+**WhatsApp and Telegram, ready to run.** `node harness/bin/gateway.ts` lets your companion answer on
+WhatsApp through [WAHA](https://waha.devlike.pro) (self-hosted, signed webhooks) and on Telegram through
+a bot (long polling, no open port), with any of the engines above. Closed by default: only the chats
+you allow get an answer. Setup in five minutes:
+[`harness/docs/gateways-whatsapp-telegram.md`](harness/docs/gateways-whatsapp-telegram.md).
+
 The day you take that step, [`harness/`](harness/README.md) gathers standalone, tested modules
 carrying patterns proven on a companion in production: a monthly portrait ritual, restarts that
 lose no message, merging bursts of messages, bounded continuity in a multi-agent group, wake-up on
@@ -128,7 +134,7 @@ anti-spam send guard. Take what serves you and ignore the rest. The modules are 
 French; the code is plain TypeScript.
 
 ```bash
-cd harness && npm test      # 263 tests at the time of writing
+cd harness && npm test      # 724 tests at the time of writing
 ```
 
 Once such a daemon runs, [`dashboard/`](dashboard/README.md) gives a live view of its state (jobs,
