@@ -84,6 +84,29 @@ export interface SensorOptions {
   /** Plafond des réveils « par prudence » (capteur inconnu / en échec). Absent = toujours réveiller. */
   prudence?: PrudenceGate;
   log?: (msg: string) => void;
+  /** Délai maximal d'un capteur, en ms (défaut `SENSOR_TIMEOUT_MS`). */
+  timeoutMs?: number;
+}
+
+/**
+ * Délai maximal d'un capteur. Le scheduler attend la porte avant de traiter le tick, et son verrou
+ * `running` interdit le tick suivant : un capteur qui pend (un fetch sans délai qui ne reçoit rien)
+ * gelait donc TOUS les réveils, y compris les rappels sans capteur. Au dépassement, le capteur est
+ * traité comme un échec ordinaire (réveil par prudence, plafonné).
+ */
+export const SENSOR_TIMEOUT_MS = 90_000;
+
+async function withTimeout<T>(sensor: () => Promise<T> | T, name: string, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const limite = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`sans réponse après ${Math.round(ms / 1000)} s (délai dépassé)`)), ms);
+  });
+  try {
+    // Promise.resolve().then : un capteur synchrone qui lève passe aussi par le chemin d'échec.
+    return await Promise.race([Promise.resolve().then(sensor), limite]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export interface SensorVerdict {
@@ -109,7 +132,7 @@ export async function evaluateSensor(name: string, opts: SensorOptions, now = Da
     return claimPrudence(opts, `capteur inconnu « ${name} »`, "unknown", note, now, log);
   }
   try {
-    const r = await sensor();
+    const r = await withTimeout(sensor, name, opts.timeoutMs ?? SENSOR_TIMEOUT_MS);
     return r.changed ? { fire: true, reason: "changed", note: r.note } : { fire: false, reason: "quiet" };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
