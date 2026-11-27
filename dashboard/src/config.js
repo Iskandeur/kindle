@@ -2,6 +2,10 @@ import { randomBytes } from "node:crypto";
 
 export const config = {
   port: Number(process.env.PORT ?? 8080),
+  // Interface d'écoute. Loopback par défaut : lancé hors conteneur (`npm start`), le dashboard ne
+  // doit pas s'ouvrir à tout le réseau. L'image Docker pose HOST=0.0.0.0 (le port n'est publié que
+  // sur 127.0.0.1 côté hôte, cf. docker-compose.yml).
+  host: process.env.HOST || "127.0.0.1",
   // Chemins montés en LECTURE SEULE (bind mounts ro) dans le conteneur — jamais écrits.
   dbPath: process.env.DASHBOARD_DB_PATH ?? "/data/companion.sqlite",
   repoPath: process.env.DASHBOARD_REPO_PATH ?? "/repo",

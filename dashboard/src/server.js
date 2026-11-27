@@ -276,6 +276,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(config.port, "0.0.0.0", () => {
-  console.log(`[compagnon-dashboard] en écoute sur :${config.port} (gate PIN ${gateEnabled() ? "activée" : "DÉSACTIVÉE"})`);
+server.listen(config.port, config.host, () => {
+  console.log(`[compagnon-dashboard] en écoute sur ${config.host}:${config.port} (gate PIN ${gateEnabled() ? "activée" : "DÉSACTIVÉE"})`);
 });

@@ -8,5 +8,8 @@ WORKDIR /app
 COPY src ./src
 COPY public ./public
 
+# Dans le conteneur, écouter sur toutes ses interfaces ; l'exposition réelle est décidée par
+# docker-compose.yml (127.0.0.1 côté hôte). Hors conteneur, le défaut reste 127.0.0.1.
+ENV HOST=0.0.0.0
 EXPOSE 8080
 CMD ["node", "src/server.js"]
