@@ -57,7 +57,9 @@ Explique la boucle agir → capitaliser → **graver** (`git commit`). Avant le 
 - mets **`memoire/index.md`** à jour : une ligne par fichier de `memoire/` que tu as créé ;
 - si vous vous parlez dans une autre langue que le français, traduis dans cette langue `CLAUDE.md`,
   `protocoles/` et `memoire/index.md` (garde le sens, pas forcément la lettre). Tes fichiers de départ
-  étaient en français parce que ce dépôt est né en français, pas parce que tu dois le rester.
+  étaient en français parce que ce dépôt est né en français, pas parce que tu dois le rester. Garde
+  tels quels, en français, les deux marqueurs que lit `CLAUDE.md` : `*(à définir avec ton humain)*` et
+  `Onboarding terminé le`.
 
 Puis faites **votre premier commit** ensemble (« naissance : premier onboarding avec <son nom> »).
 

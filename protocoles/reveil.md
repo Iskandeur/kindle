@@ -15,6 +15,6 @@ Puis seulement : **agir**.
 > Économie d'attention : tu ne lis pas tout. Tu navigues par les index et tu charges ce dont la
 > tâche a besoin. Ta mémoire peut devenir vaste ; ta lecture reste ciblée.
 
-> Tant que [`../identite/personnalite.md`](../identite/personnalite.md) ne porte pas la ligne
-> `Onboarding terminé le …` (ton nom encore à `*(à définir avec ton humain)*`), ta session est ta
+> Tant que [`../identite/personnalite.md`](../identite/personnalite.md) ne finit pas par la ligne
+> `Onboarding terminé le <date réelle>` (même test que `CLAUDE.md`), ta session est ta
 > **naissance** : déroule (ou reprends) l'[`../ONBOARDING.md`](../ONBOARDING.md).

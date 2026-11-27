@@ -49,6 +49,10 @@ services:
     volumes: ["./waha-sessions:/app/.sessions"]
 ```
 
+Generate both keys (`openssl rand -hex 32`) instead of keeping the placeholders, and once it works,
+pin the image to the version you tested instead of `latest`. Port 8787 is the gateway's webhook
+listener (`WAHA_WEBHOOK_PORT`); if another service of yours already uses it, change both sides.
+
 `docker compose up -d`, open `http://localhost:3000/dashboard`, start the `default` session and scan
 the QR code from the phone that holds the dedicated number.
 
