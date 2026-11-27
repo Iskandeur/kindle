@@ -160,6 +160,16 @@ test("attribution : la hausse va à l'origine de la mesure, le trou à part", ()
   assert.deepEqual(formatAttribution([]), ["aucune consommation mesurée sur la période"]);
 });
 
+test("formatAttribution : total 5 h nul → parts sur 7 j, pas de colonne 5 h", () => {
+  const l = (key: string, seven: number, five = 0) => ({ key, five, seven, runs: 1 });
+  const out = formatAttribution([l("jobs", 0.03), l("rituel", 0.01)]);
+  assert.equal(out.some((s) => s.includes("5 h")), false);
+  assert.match(out[0]!, /semaine :\s+3 pts \( 75 %\)/);
+  assert.match(out[1]!, /\( 25 %\)/);
+  assert.match(out[2]!, /^TOTAL\s+semaine :\s+4 pts$/);
+  assert.match(formatAttribution([l("jobs", 0.03, 0.02)])[0]!, /5 h :/);
+});
+
 test("jobBypassesDefer : chaîne ou [urgent]", () => {
   assert.equal(jobBypassesDefer({ intent: "x", chainKind: "nuit" }), true);
   assert.equal(jobBypassesDefer({ intent: " [Urgent] x" }), true);

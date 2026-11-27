@@ -604,7 +604,7 @@ export function attributeByOrigin(
     }
     prev = r;
   }
-  return [...acc.values()].sort((a, b) => b.five - a.five || b.seven - a.seven);
+  return [...acc.values()].sort((a, b) => b.seven - a.seven || b.five - a.five);
 }
 
 /** Tableau texte de l'attribution. PUR. */
@@ -612,11 +612,16 @@ export function formatAttribution(lines: readonly AttributionLine[]): string[] {
   const tot5 = lines.reduce((a, l) => a + l.five, 0);
   const tot7 = lines.reduce((a, l) => a + l.seven, 0);
   if (lines.length === 0 || (tot5 === 0 && tot7 === 0)) return ["aucune consommation mesurée sur la période"];
+  // Une fenêtre 5 h absente (abonnement sans limite 5 h, ou relevé qui ne la rend plus) donnait des
+  // parts à 0 % partout : colonne omise tant que son total est nul, parts toujours calculées sur 7 j.
+  const avec5 = tot5 > 0;
   const out = lines.map((l) => {
-    const share = tot5 > 0 ? Math.round((l.five / tot5) * 100) : 0;
-    return `${l.key.padEnd(34)} 5 h : ${(l.five * 100).toFixed(0).padStart(4)} pts (${String(share).padStart(3)} %) · semaine : ${(l.seven * 100).toFixed(0).padStart(3)} pts · ${l.runs} tours`;
+    const share = tot7 > 0 ? Math.round((l.seven / tot7) * 100) : 0;
+    const c5 = avec5 ? `5 h : ${(l.five * 100).toFixed(0).padStart(4)} pts · ` : "";
+    return `${l.key.padEnd(34)} ${c5}semaine : ${(l.seven * 100).toFixed(0).padStart(3)} pts (${String(share).padStart(3)} %) · ${l.runs} tours`;
   });
-  out.push(`${"TOTAL".padEnd(34)} 5 h : ${(tot5 * 100).toFixed(0).padStart(4)} pts · semaine : ${(tot7 * 100).toFixed(0).padStart(3)} pts`);
+  const t5 = avec5 ? `5 h : ${(tot5 * 100).toFixed(0).padStart(4)} pts · ` : "";
+  out.push(`${"TOTAL".padEnd(34)} ${t5}semaine : ${(tot7 * 100).toFixed(0).padStart(3)} pts`);
   return out;
 }
 
