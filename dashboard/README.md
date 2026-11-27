@@ -25,16 +25,17 @@ est en plus ouvert avec `readOnly: true` (double barrière).
 ### Sans Docker
 
 ```bash
+PIN=$(openssl rand -hex 4); echo "PIN du dashboard : $PIN"
 DASHBOARD_DB_PATH=/chemin/absolu/vers/harness/data/companion.sqlite \
 DASHBOARD_REPO_PATH=/chemin/absolu/vers/ton-compagnon \
 DASHBOARD_DAEMON_HEALTH_URL=http://127.0.0.1:8787/health \
-ACCESS_PIN=$(openssl rand -hex 4) ACCESS_SESSION_SECRET=$(openssl rand -hex 32) PORT=8790 \
+ACCESS_PIN=$PIN ACCESS_SESSION_SECRET=$(openssl rand -hex 32) PORT=8790 \
 npm --prefix dashboard start
 ```
 
 Les deux premiers chemins sont obligatoires (leurs valeurs par défaut, `/data/…` et `/repo`, sont
-celles du conteneur). Note le PIN généré (`echo` avant de lancer, ou mets ces variables dans un
-fichier lu par ton service plutôt que dans l'historique du shell). Puis ouvre `http://127.0.0.1:8790`.
+celles du conteneur). Pour un service durable, mets ces variables dans un fichier lu par le service
+plutôt que dans l'historique du shell. Puis ouvre `http://127.0.0.1:8790` et entre le PIN affiché.
 
 La liaison `172.17.0.1` de `docker-compose.yml` est commentée par défaut : si un autre conteneur
 joignait ce dashboard par `host.docker.internal`, décommente-la (Linux seulement). ⚠️ Hors conteneur, `src/server.js` écoute
