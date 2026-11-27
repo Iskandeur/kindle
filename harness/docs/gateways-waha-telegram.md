@@ -59,6 +59,23 @@ KINDLE_TZ=Europe/Paris
 
 `node harness/bin/waha-gateway.ts --check` dit si la session est `WORKING` et ce qui est autorisé.
 
+⚠️ **Linux : le webhook n'arrive pas sans `WAHA_WEBHOOK_HOST`.** Depuis le conteneur,
+`host.docker.internal` (via `host-gateway`) vise l'adresse du pont Docker de l'hôte (souvent
+`172.17.0.1`), pas son `127.0.0.1` ; or la gateway écoute par défaut sur `127.0.0.1`. WAHA échoue alors
+à livrer chaque message, sans rien dire côté gateway. Ajoute dans `.env` :
+
+```bash
+WAHA_WEBHOOK_HOST=172.17.0.1   # l'adresse de docker0 : ip -4 addr show docker0
+```
+
+Cette adresse n'est joignable que depuis la machine et ses conteneurs, pas depuis Internet. N'écris
+jamais `0.0.0.0` ici sans pare-feu. Sous Docker Desktop (Mac, Windows), `host.docker.internal` atteint
+bien le `127.0.0.1` de l'hôte : rien à ajouter. Vérification : envoie un message au numéro dédié, la
+gateway doit écrire une ligne dans son journal.
+
+Si le tableau de bord WAHA demande un identifiant, c'est celui de `WAHA_DASHBOARD_USERNAME` /
+`WAHA_DASHBOARD_PASSWORD` (variables d'environnement du conteneur, voir la documentation de WAHA).
+
 ### Ce qui te protège
 
 - **Fermé par défaut.** `WAHA_ALLOWED_CHATS` vide = la gateway n'écoute personne. Un numéro

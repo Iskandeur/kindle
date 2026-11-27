@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Le corps optionnel de ton compagnon — daemon always-on, zéro dépendance (modules natifs Node >=22).",
-  "engines": { "node": ">=22.6" },
+  "engines": { "node": ">=22.13" },
   "scripts": {
     "test": "node --test",
     "typecheck": "tsc --noEmit"
