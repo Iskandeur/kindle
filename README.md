@@ -27,17 +27,29 @@ session makes it a bit more *itself* and a bit more useful to **you**.
    git clone https://github.com/Iskandeur/Kindle my-companion
    cd my-companion
    ```
-2. **Start Claude Code** inside it:
+2. **Install the ticket board once** (optional, but do it now: installing it later means restarting
+   in the middle of the onboarding conversation):
+   ```bash
+   claude plugin marketplace add Iskandeur/alvearium
+   claude plugin install alvearium@session-board
+   ```
+   If it prints `2 userConfig options not yet set`, ignore it (see *Alvearium, built in* below).
+3. **Start Claude Code** inside it:
    ```bash
    claude
    ```
-   Claude Code asks you to trust the folder. Accept: that is what registers the Alvearium
-   marketplace from `.claude/settings.json` (see *Alvearium, built in* below).
-3. **Say hello.** It reads its `CLAUDE.md`, understands it was just born and **starts the onboarding
+   Claude Code asks you to trust the folder. Accept.
+4. **Say hello.** It reads its `CLAUDE.md`, understands it was just born and **starts the onboarding
    by itself**: it asks a few questions to build an identity and learn who you are. Let it guide you.
 
 At the end of the onboarding your companion has its first memory, and knows how to grow it every
-time you work together.
+time you work together. It writes the line `Onboarding terminé le <date>` at the bottom of
+`identite/personnalite.md`: that is how the next session knows it was born. If you close the session
+halfway, the next one resumes where it stopped.
+
+**Not a French speaker?** Tell it at the first message. Its starter files are in French; the
+onboarding translates `CLAUDE.md`, `protocoles/` and the memory index into your language before its
+first commit.
 
 ## Alvearium, built in
 
@@ -122,7 +134,8 @@ node harness/bin/waha-gateway.ts       # WhatsApp, through a WAHA container (ded
 node harness/bin/telegram-gateway.ts   # Telegram, through a bot (no open port)
 ```
 
-Both are closed by default: WhatsApp only listens to the chats in `WAHA_ALLOWED_CHATS`, Telegram
+New to this? Read [`harness/docs/give-your-agent-whatsapp.md`](harness/docs/give-your-agent-whatsapp.md)
+first: a dedicated number, WAHA, and the send guard, step by step. Both are closed by default: WhatsApp only listens to the chats in `WAHA_ALLOWED_CHATS`, Telegram
 seals your numeric id on your first message and ignores everyone else. They also carry the
 anti-loop, anti-duplicate, anti-flood and stale-replay guards learned in production. Setup (WAHA
 `docker-compose`, BotFather, systemd) is in
@@ -145,8 +158,11 @@ anti-spam send guard. Take what serves you and ignore the rest. The modules are 
 French; the code is plain TypeScript.
 
 ```bash
-cd harness && npm test      # 777 tests at the time of writing
+npm --prefix harness test   # ~780 tests, a few seconds to half a minute
 ```
+
+`npm test` needs nothing installed. `npm run typecheck` needs `npm install` first (TypeScript is the
+only dev dependency).
 
 Once such a daemon runs, [`dashboard/`](dashboard/README.md) gives a live view of its state (jobs,
 wake-ups, cost, sessions) without digging through logs: a native Node app with no dependencies,
@@ -154,7 +170,7 @@ started with `docker compose up` or `npm start`. It reads the harness's SQLite d
 repository, so it only helps once `harness/` is running.
 
 ```bash
-cd dashboard && npm test    # 21 tests at the time of writing
+npm --prefix dashboard test # ~20 tests
 ```
 
 ---

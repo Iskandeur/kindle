@@ -22,6 +22,26 @@ directement sur Internet. Le tunnel Cloudflare est un **quick tunnel** (URL éph
 chaque redémarrage). Base SQLite et dépôt git montés en **lecture seule** (`:ro`) ; `node:sqlite`
 est en plus ouvert avec `readOnly: true` (double barrière).
 
+### Sans Docker
+
+```bash
+PIN=$(openssl rand -hex 4); echo "PIN du dashboard : $PIN"
+DASHBOARD_DB_PATH=/chemin/absolu/vers/harness/data/companion.sqlite \
+DASHBOARD_REPO_PATH=/chemin/absolu/vers/ton-compagnon \
+DASHBOARD_DAEMON_HEALTH_URL=http://127.0.0.1:8787/health \
+ACCESS_PIN=$PIN ACCESS_SESSION_SECRET=$(openssl rand -hex 32) PORT=8790 \
+npm --prefix dashboard start
+```
+
+Les deux premiers chemins sont obligatoires (leurs valeurs par défaut, `/data/…` et `/repo`, sont
+celles du conteneur). Pour un service durable, mets ces variables dans un fichier lu par le service
+plutôt que dans l'historique du shell. Puis ouvre `http://127.0.0.1:8790` et entre le PIN affiché.
+
+La liaison `172.17.0.1` de `docker-compose.yml` est commentée par défaut : si un autre conteneur
+joignait ce dashboard par `host.docker.internal`, décommente-la (Linux seulement). ⚠️ Hors conteneur, `src/server.js` écoute
+sur toutes les interfaces : ne le lance pas ainsi sur une machine joignable depuis Internet sans pare-feu,
+et garde toujours un `ACCESS_PIN`.
+
 ## Contrat de données
 
 Ce dashboard lit la base SQLite de ton harnais et, pour certains panneaux, appelle deux routes
@@ -43,17 +63,17 @@ jusqu'à ce que tu étendes ton schéma.
 | 💰 Usage & billing | Non — à étendre | `cost_log(id, ts, scope, session_id, engine, model, cost_usd)` — journal APPEND-ONLY (une ligne par tour), pas un upsert par session |
 | Approbations récentes | Non — à étendre | `approvals(id, description, kind, status, created_at, decided_at, command)` |
 | Réglages modèle | Non — à étendre | `settings(key, value, updated_at)` (clé/valeur) + `POST /settings` côté ton daemon (Bearer `DASHBOARD_SETTINGS_TOKEN`), avec ta propre allowlist de commandes |
-| 🌙 Rituel nocturne (exemple) | Non — optionnel | `harness/persona/nightly.md` (ou le nom que tu choisis, `src/dream-prompt.js`) + `session_log.source = 'nightly'` |
+| 🌙 Rituel nocturne (exemple) | Non — optionnel | `harness/persona/nightly.md`, **à créer toi-même** (absent du dépôt ; le panneau dit qu'il manque tant qu'il n'existe pas ; autre nom : `src/dream-prompt.js`) + `session_log.source = 'nightly'` |
 
 Chaque module dans `src/` documente en tête de fichier le schéma qu'il attend. Étends ton harnais
 table par table, dans l'ordre qui te sert — rien n'est tout-ou-rien.
 
 ## Ce qui a été retiré ou changé par rapport au dashboard d'origine
 
-- **Panneau Sensors retiré entièrement.** Il dépendait d'un registre de pré-filtres zéro-token
-  (`harness/src/sensors/index.ts`) qui n'a pas d'équivalent dans le harnais de ce starter — aucun
-  des modules listés dans `harness/README.md` n'implémente ce pattern. Plutôt que de porter du code
-  qui ne pourrait jamais s'activer nulle part, il a été coupé (route `/api/sensors`, `src/sensors-registry.js`,
+- **Panneau Sensors retiré entièrement.** Il lisait un registre de pré-filtres zéro-token propre au
+  daemon d'origine. Le harnais de ce starter a depuis son propre registre (`harness/src/lib/sensors.ts`,
+  `harness/docs/capteurs-zero-token.md`), mais il ne journalise pas ses évaluations dans une table que
+  ce dashboard saurait lire : le panneau reste donc coupé (route `/api/sensors`, `src/sensors-registry.js`,
   colonnes `sensor`/décompte d'évaluations dans `src/db.js`, section HTML/CSS associée — le dernier
   résidu, `src/sensors-registry.{js,test.js}`, a traîné en code mort jusqu'au nettoyage du 12/08). Si
   ce pattern est porté séparément un jour, ce panneau peut revenir.

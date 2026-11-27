@@ -20,7 +20,8 @@ services:
       # réseau custom de CE projet. Sans cette 2e liaison, un tel appelant peut échouer à se
       # connecter (le port n'étant publié que sur 127.0.0.1). Inutile si rien d'autre n'a besoin de
       # joindre ce service par ce biais — retire la ligne dans ce cas.
-      - "172.17.0.1:${HOST_PORT:-8790}:8080"
+      # Linux seulement (échoue sous Docker Desktop et Docker rootless) : décommente si besoin.
+      # - "172.17.0.1:${HOST_PORT:-8790}:8080"
     environment:
       ACCESS_PIN: ${ACCESS_PIN}
       ACCESS_SESSION_SECRET: ${ACCESS_SESSION_SECRET}

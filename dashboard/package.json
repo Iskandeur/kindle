@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Dashboard opérateur, lecture seule, pour le harnais optionnel de ton compagnon (voir harness/).",
-  "engines": { "node": ">=22.6" },
+  "engines": { "node": ">=22.13" },
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test"
