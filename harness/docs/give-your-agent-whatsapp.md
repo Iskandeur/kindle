@@ -5,8 +5,9 @@ answers". Three pieces: **a dedicated number**, **WAHA** (the bridge to WhatsApp
 guard** that stops the agent from getting that number banned. Allow an hour, most of it waiting for
 a SIM.
 
-> The detailed, tested reference is in French: [`gateways-waha-telegram.md`](gateways-waha-telegram.md)
-> (setup), [`wa-guard-et-impersonation.md`](wa-guard-et-impersonation.md) (send guard) and
+> The detailed gateway reference exists in English, [`gateways-waha-telegram.en.md`](gateways-waha-telegram.en.md)
+> (WhatsApp and Telegram setup), and in French, [`gateways-waha-telegram.md`](gateways-waha-telegram.md).
+> Still French only: [`wa-guard-et-impersonation.md`](wa-guard-et-impersonation.md) (send guard) and
 > [`../../competences/whatsapp-numero-sans-ban.md`](../../competences/whatsapp-numero-sans-ban.md)
 > (how a number gets banned). This page is the English walkthrough that ties them together.
 
@@ -30,8 +31,9 @@ number, and it must stay **read-only** (section 4).
 ## 2. Run WAHA
 
 [WAHA](https://waha.devlike.pro) is an HTTP API around WhatsApp Web, shipped as a Docker container.
-Put its `docker-compose.yml` **next to** your companion's repository, not inside it (it holds the
-session keys):
+Put its `docker-compose.yml` in a folder **next to** your companion's repository, not inside it (it
+holds the session keys), for example `../waha/docker-compose.yml`, and run the `docker compose`
+commands from that folder:
 
 ```yaml
 services:
@@ -40,7 +42,11 @@ services:
     restart: unless-stopped
     ports: ["127.0.0.1:3000:3000"]            # loopback only, never exposed
     environment:
-      WHATSAPP_API_KEY: "change-me"            # = WAHA_API_KEY in your .env
+      WAHA_API_KEY: "change-me"                # = WAHA_API_KEY in your .env
+      WAHA_DASHBOARD_USERNAME: "admin"         # dashboard login (section 2b)
+      WAHA_DASHBOARD_PASSWORD: "change-me-too"
+      WHATSAPP_SWAGGER_USERNAME: "admin"       # Swagger API page, same idea
+      WHATSAPP_SWAGGER_PASSWORD: "change-me-too"
       WHATSAPP_DEFAULT_ENGINE: "GOWS"
       WHATSAPP_HOOK_URL: "http://host.docker.internal:8787/waha"
       WHATSAPP_HOOK_EVENTS: "message"
@@ -49,12 +55,34 @@ services:
     volumes: ["./waha-sessions:/app/.sessions"]
 ```
 
-Generate both keys (`openssl rand -hex 32`) instead of keeping the placeholders, and once it works,
-pin the image to the version you tested instead of `latest`. Port 8787 is the gateway's webhook
-listener (`WAHA_WEBHOOK_PORT`); if another service of yours already uses it, change both sides.
+Generate the keys and passwords (`openssl rand -hex 32`) instead of keeping the placeholders, and
+once it works, pin the image to the version you tested instead of `latest`. Port 8787 is the
+gateway's webhook listener (`WAHA_WEBHOOK_PORT`); if another service of yours already uses it, change
+both sides. Older WAHA guides write the key as `WHATSAPP_API_KEY`; current WAHA documents
+`WAHA_API_KEY`, which is what this file uses. WAHA also accepts the key stored as a hash
+(`WAHA_API_KEY: "sha512:<hex>"`); the gateway keeps sending the plain key, so your `.env` does not
+change.
 
-`docker compose up -d`, open `http://localhost:3000/dashboard`, start the `default` session and scan
-the QR code from the phone that holds the dedicated number.
+`docker compose up -d`.
+
+### 2b. Log in to the WAHA dashboard
+
+Recent WAHA versions protect the dashboard. Two separate secrets are involved:
+
+1. **The dashboard login**: open `http://localhost:3000/dashboard` and sign in with
+   `WAHA_DASHBOARD_USERNAME` / `WAHA_DASHBOARD_PASSWORD`. If you left them out, WAHA does not leave
+   the dashboard open: it generates random secrets at startup and prints them in its log
+   (`docker compose logs waha`). Setting them yourself is simpler.
+2. **The API key**: once logged in, the dashboard still talks to the WAHA API like any other
+   client, so it needs the server's key. In the server connection settings of the dashboard (the
+   server URL is `http://localhost:3000`), enter the same value as `WAHA_API_KEY`. Until you do,
+   session lists stay empty or fail with "unauthorized".
+
+Then start the `default` session and scan the QR code from the phone that holds the dedicated number
+(WhatsApp > Linked devices > Link a device). The session turns `WORKING`.
+
+Running WAHA on a remote server? Keep `127.0.0.1:3000` and reach the dashboard through an SSH tunnel
+(`ssh -L 3000:127.0.0.1:3000 you@server`), never by publishing the port.
 
 ## 3. Plug in the gateway
 
@@ -105,6 +133,10 @@ to the chat it came from. That is the safest setup, and enough for most people.
 
 ## 4. The send guard, once the agent sends on its own
 
+*Advanced, not needed for the relay mode of section 3.* This repository does not ship a WhatsApp MCP
+server: you pick one that talks to your WAHA instance and declare it in `.mcp.json`. The guard below
+works with any of them, as long as the server names follow the pattern described.
+
 Sooner or later you will want more: the agent writing to a group, sending an image, pinging you
 first when a job finishes. That means giving it WAHA's MCP server (send tools in its own hands).
 From that moment, **its judgment is the only thing between a bad moment and a banned number**, unless
@@ -122,7 +154,7 @@ Wire it in `.claude/settings.json`:
     "PreToolUse": [
       {
         "matcher": "mcp__whatsapp_.*",
-        "hooks": [{ "type": "command", "command": "node harness/bin/wa-guard.ts" }]
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/harness/bin/wa-guard.ts\"" }]
       }
     ]
   }
@@ -167,7 +199,7 @@ From a companion that lost one (the full post-mortem is in
 ## Checklist
 
 - [ ] Dedicated number registered on a phone, never your own
-- [ ] WAHA on `127.0.0.1:3000`, session `WORKING`
+- [ ] WAHA on `127.0.0.1:3000`, dashboard login and API key set, session `WORKING`
 - [ ] `.env` with `WAHA_ALLOWED_CHATS` = your chat only, HMAC key set, `WAHA_WEBHOOK_HOST` on Linux
 - [ ] `waha-gateway.ts --check` passes, and a test message gets an answer
 - [ ] Before giving the agent send tools: `wa-guard` wired as a `PreToolUse` hook, `WA_GUARD_OWNER` set

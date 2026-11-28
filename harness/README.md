@@ -5,6 +5,11 @@
 > lieu d'attendre que tu ouvres une session Claude Code). Tant que tu vis en sessions manuelles,
 > ignore ce dossier : rien ici n'est requis pour que `identite/`, `memoire/`, `competences/` et
 > `protocoles/` fonctionnent.
+>
+> *English:* this folder is optional. To text your companion from your phone, start with
+> [`docs/give-your-agent-whatsapp.md`](docs/give-your-agent-whatsapp.md) and
+> [`docs/gateways-waha-telegram.en.md`](docs/gateways-waha-telegram.en.md). Most other pages here are
+> in French.
 
 ## Ce que c'est — et ce que ce n'est pas
 
