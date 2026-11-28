@@ -72,7 +72,7 @@ tunnel (`ssh -L 3000:127.0.0.1:3000 you@server`), never through a published port
 WAHA_BASE_URL=http://localhost:3000
 WAHA_API_KEY=change-me
 WAHA_SESSION=default
-WAHA_ALLOWED_CHATS=33612345678@c.us        # YOUR number (international format without +), commas for several
+WAHA_ALLOWED_CHATS=<your-number>@c.us      # YOUR number (international format without +), commas for several
 WAHA_WEBHOOK_HMAC_KEY=another-key
 KINDLE_HUMAN_NAME=Alex
 KINDLE_TZ=Europe/Paris
@@ -149,7 +149,7 @@ One systemd service per gateway is enough:
 ```ini
 # /etc/systemd/system/companion-waha.service
 [Service]
-WorkingDirectory=/home/me/my-companion
+WorkingDirectory=/path/to/my-companion
 ExecStart=/usr/bin/node harness/bin/waha-gateway.ts
 Restart=always
 User=me
