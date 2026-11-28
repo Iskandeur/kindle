@@ -89,6 +89,38 @@ test("evaluateSensor : inconnu ou en échec → réveil par prudence, jusqu'au p
   assert.equal(alerts.length, 1);
 });
 
+test("evaluateSensor : un capteur qui pend devient un échec ordinaire au délai, sans geler la porte", async () => {
+  const registry = createSensorRegistry();
+  registry.register("pend", () => new Promise(() => {}));
+  registry.register("sync-casse", () => {
+    throw new Error("levée synchrone");
+  });
+  const t0 = Date.now();
+  const v = await evaluateSensor("pend", { registry, log: () => {}, timeoutMs: 30 });
+  assert.ok(Date.now() - t0 < 2000, "rend la main au délai");
+  assert.equal(v.fire, true);
+  assert.equal(v.reason, "error");
+  assert.match(v.note!, /délai dépassé/);
+  const s = await evaluateSensor("sync-casse", { registry, log: () => {} });
+  assert.equal(s.reason, "error");
+  assert.match(s.note!, /levée synchrone/);
+});
+
+test("prefetchSensorGate : un capteur qui pend n'empêche pas les autres réveils du tick", async () => {
+  const registry = createSensorRegistry();
+  registry.register("pend", () => new Promise(() => {}));
+  const store = openWakeStore(":memory:");
+  store.addWake(1000, "@sensor:pend veille", 60_000);
+  store.addWake(1100, "rappel sans capteur");
+  const gate = await prefetchSensorGate(store.dueWakes(1500), { registry, log: () => {}, timeoutMs: 20 }, 1500);
+  const events: WakeEvent[] = [];
+  processDueWakes(store, (e) => events.push(e), 1500, 100, gate);
+  assert.equal(events.length, 2, "le capteur fautif réveille par prudence ET le rappel part");
+  assert.ok(events.some((e) => e.intent === "rappel sans capteur"));
+  assert.ok(events.some((e) => /délai dépassé/.test(e.intent)));
+  store.close();
+});
+
 // ── porte branchée sur le scheduler ───────────────────────────────────────────────────────────
 
 test("scheduler + porte : récurrent muet réarmé sans fire ; récurrent bavard tire avec la note", async () => {
