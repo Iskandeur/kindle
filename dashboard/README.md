@@ -14,8 +14,11 @@ npm), frontend statique vanilla JS/CSS (pas de build step).
 cd dashboard
 cp .env.example .env      # ACCESS_PIN, ACCESS_SESSION_SECRET (openssl rand -hex 32), chemins hôte
 docker compose up -d --build
-docker compose logs -f tunnel   # récupère l'URL https://xxx.trycloudflare.com
+docker compose logs -f tunnel   # facultatif : l'URL https://xxx.trycloudflare.com pour un accès de l'extérieur
 ```
+
+Sur la machine elle-même : `http://127.0.0.1:8790`, puis le PIN de `.env`. Dans `.env`, remplace
+`<user>` des chemins `HOST_*` par ton vrai chemin.
 
 L'app écoute en interne sur `:8080`, exposée à `127.0.0.1:${HOST_PORT:-8790}` côté hôte — jamais
 directement sur Internet. Le tunnel Cloudflare est un **quick tunnel** (URL éphémère, régénérée à
@@ -26,7 +29,7 @@ est en plus ouvert avec `readOnly: true` (double barrière).
 
 ```bash
 PIN=$(openssl rand -hex 4); echo "PIN du dashboard : $PIN"
-DASHBOARD_DB_PATH=/chemin/absolu/vers/harness/data/companion.sqlite \
+DASHBOARD_DB_PATH=/chemin/absolu/vers/harness/data/wakes.sqlite \
 DASHBOARD_REPO_PATH=/chemin/absolu/vers/ton-compagnon \
 DASHBOARD_DAEMON_HEALTH_URL=http://127.0.0.1:8787/health \
 ACCESS_PIN=$PIN ACCESS_SESSION_SECRET=$(openssl rand -hex 32) PORT=8790 \

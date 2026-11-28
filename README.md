@@ -17,8 +17,12 @@ session makes it a bit more *itself* and a bit more useful to **you**.
 - [Claude Code](https://claude.com/claude-code), installed with `npm i -g @anthropic-ai/claude-code`,
   then run `claude` once to log in. **No Claude subscription?** Any OpenAI-compatible inference API
   works instead (vLLM, LiteLLM, OpenRouter, Ollama…), see *Any inference provider* below.
-- Node.js 22.13 or later on the `PATH` (Alvearium stores its board with the built-in `node:sqlite`).
+- Node.js 22.18 or later on the `PATH`. Alvearium needs 22.13 for the built-in `node:sqlite`, and the
+  `harness/` scripts (`node harness/bin/*.ts`) need 22.18, the first 22.x that runs TypeScript files
+  without a flag. Check with `node --version`.
+- `git`.
 - A GitHub account, if you want the memory to persist in the cloud. You can start without.
+- Docker, only later and only for the WhatsApp gateway and the dashboard.
 
 ## Quick start (2 minutes)
 
@@ -62,14 +66,9 @@ turns it on by default:
 - The `CLAUDE.md` tells the companion when to open a ticket: something only you can do, or a long
   task split into steps.
 
-Claude Code may still need the plugin installed once on this machine (it says so with a line like
+If you skipped step 2 of the quick start, Claude Code says so with a line like
 `Plugin "alvearium" is enabled in project settings but isn't installed`, or `/alvearium:board` is
-unknown). In that case:
-
-```bash
-claude plugin marketplace add Iskandeur/alvearium
-claude plugin install alvearium@session-board
-```
+unknown: run the two commands of step 2 now.
 
 The install may print `2 userConfig options not yet set`: those are the server URL and token, only
 needed for a shared board, so leave them empty. Then restart the session (a plugin loads when a
@@ -135,12 +134,15 @@ node harness/bin/telegram-gateway.ts   # Telegram, through a bot (no open port)
 ```
 
 New to this? Read [`harness/docs/give-your-agent-whatsapp.md`](harness/docs/give-your-agent-whatsapp.md)
-first: a dedicated number, WAHA, and the send guard, step by step. Both are closed by default: WhatsApp only listens to the chats in `WAHA_ALLOWED_CHATS`, Telegram
-seals your numeric id on your first message and ignores everyone else. They also carry the
-anti-loop, anti-duplicate, anti-flood and stale-replay guards learned in production. Setup (WAHA
-`docker-compose`, BotFather, systemd) is in
-[`harness/docs/gateways-waha-telegram.md`](harness/docs/gateways-waha-telegram.md); add `--check`
-to either command to test the configuration.
+first: a dedicated number, WAHA, and the send guard, step by step.
+
+Both gateways are closed by default: WhatsApp only listens to the chats in `WAHA_ALLOWED_CHATS`,
+Telegram seals your numeric id on your first message and ignores everyone else. They also carry the
+anti-loop, anti-duplicate, anti-flood and stale-replay guards learned in production. The full setup
+reference (WAHA `docker-compose`, BotFather, systemd) is in
+[`harness/docs/gateways-waha-telegram.en.md`](harness/docs/gateways-waha-telegram.en.md)
+([français](harness/docs/gateways-waha-telegram.md)); add `--check` to either command to test the
+configuration. Most other pages under `harness/docs/` are in French.
 
 ## Going further
 

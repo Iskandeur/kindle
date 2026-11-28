@@ -1,5 +1,7 @@
 # WhatsApp (WAHA) et Telegram : parler à ton compagnon depuis ton téléphone
 
+> *English version: [`gateways-waha-telegram.en.md`](gateways-waha-telegram.en.md).*
+
 Deux gateways prêtes à lancer, zéro dépendance, qui marchent avec **n'importe quel moteur** de
 `brancher-ton-api.md` (Claude Code, OpenCode, API compatible OpenAI) :
 
@@ -33,7 +35,11 @@ services:
     restart: unless-stopped
     ports: ["127.0.0.1:3000:3000"]          # loopback seulement
     environment:
-      WHATSAPP_API_KEY: "change-moi"          # = WAHA_API_KEY côté gateway
+      WAHA_API_KEY: "change-moi"              # = WAHA_API_KEY côté gateway
+      WAHA_DASHBOARD_USERNAME: "admin"        # connexion au tableau de bord
+      WAHA_DASHBOARD_PASSWORD: "change-moi-aussi"
+      WHATSAPP_SWAGGER_USERNAME: "admin"      # page Swagger de l'API, même principe
+      WHATSAPP_SWAGGER_PASSWORD: "change-moi-aussi"
       WHATSAPP_DEFAULT_ENGINE: "GOWS"         # ou WEBJS / NOWEB
       WHATSAPP_HOOK_URL: "http://host.docker.internal:8787/waha"
       WHATSAPP_HOOK_EVENTS: "message"
@@ -42,8 +48,22 @@ services:
     volumes: ["./waha-sessions:/app/.sessions"]
 ```
 
-Puis `docker compose up -d`, ouvre `http://localhost:3000/dashboard`, démarre la session `default`
-et scanne le QR code avec le téléphone du numéro dédié.
+Génère clés et mots de passe (`openssl rand -hex 32`). Les anciens guides WAHA écrivent la clé
+`WHATSAPP_API_KEY` ; la documentation actuelle dit `WAHA_API_KEY`. Une clé stockée en empreinte
+(`WAHA_API_KEY: "sha512:<hex>"`) marche aussi : la gateway envoie toujours la clé en clair.
+
+Puis `docker compose up -d` et ouvre `http://localhost:3000/dashboard`. Deux secrets distincts :
+
+1. **La connexion au tableau de bord** : `WAHA_DASHBOARD_USERNAME` / `WAHA_DASHBOARD_PASSWORD`. Non
+   posés, WAHA en génère d'aléatoires au démarrage et les écrit dans son journal
+   (`docker compose logs waha`).
+2. **La clé d'API** : une fois connecté, le tableau de bord appelle l'API comme n'importe quel
+   client. Dans ses réglages de connexion au serveur (`http://localhost:3000`), saisis la même valeur
+   que `WAHA_API_KEY`, sinon la liste des sessions reste vide ou répond « unauthorized ».
+
+Démarre ensuite la session `default` et scanne le QR code avec le téléphone du numéro dédié
+(WhatsApp > Appareils connectés). WAHA sur un serveur distant : garde `127.0.0.1:3000` et passe par
+un tunnel SSH (`ssh -L 3000:127.0.0.1:3000 toi@serveur`), jamais par un port publié.
 
 ### 2. Configurer la gateway (`.env`)
 
@@ -72,9 +92,6 @@ Cette adresse n'est joignable que depuis la machine et ses conteneurs, pas depui
 jamais `0.0.0.0` ici sans pare-feu. Sous Docker Desktop (Mac, Windows), `host.docker.internal` atteint
 bien le `127.0.0.1` de l'hôte : rien à ajouter. Vérification : envoie un message au numéro dédié, la
 gateway doit écrire une ligne dans son journal.
-
-Si le tableau de bord WAHA demande un identifiant, c'est celui de `WAHA_DASHBOARD_USERNAME` /
-`WAHA_DASHBOARD_PASSWORD` (variables d'environnement du conteneur, voir la documentation de WAHA).
 
 ### Ce qui te protège
 
